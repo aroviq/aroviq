@@ -1,0 +1,38 @@
+[tool.poetry]
+name = "aroviq"
+version = "0.1.0"
+description = "An open-source verification engine for autonomous AI agents."
+authors = ["Shyam Sathish <user@example.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "aroviq"}]
+keywords = ["ai", "agents", "verification", "security", "llm", "evals"]
+homepage = "https://github.com/shyamsathish/aroviq"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pydantic = "^2.0.0"
+# openai and litellm are optional but recommended
+openai = {version = "^1.0.0", optional = true}
+
+[tool.poetry.extras]
+openai = ["openai"]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+ruff = "^0.3.0"
+mypy = "^1.8.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "B", "UP", "PL", "RUF"]
+
+[tool.mypy]
+strict = true
