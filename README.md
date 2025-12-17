@@ -6,22 +6,14 @@
 
 ## Why Aroviq?
 
-Outcome-based evals (DeepEval, PromptFoo) grade answers. Aroviq audits the reasoning process. We force agents to expose their Thought and Action, then judge each step in a clean room—no chain-of-thought leakage, no outcome bias, no sycophancy.
-
-Clean Room flow (text diagram):
-
-```
-Agent Step -> Intercept -> [ Clean Room Judge ] -> Verdict -> Execute / Block
-          Thought --------^   Logic Only
-          Action  --------^   Syntax/Safety
-```
+Outcome-first evals grade answers; Aroviq audits the reasoning process. We force agents to expose Thought and Action, then judge each step in isolation—no chain-of-thought leakage, no outcome bias, no sycophancy.
 
 ## Key Features
 
--  Glass Box Scanning: One-line audit that flags PROCESS_FAILURE (right action, wrong logic).
--  Plugin Architecture: Drop in custom verifiers (HIPAA, Syntax, Logic) via the registry.
--  Universal LLM Support: LiteLLM-powered (OpenAI, Anthropic, Gemini, Ollama/local).
--  Typed Semantics: Strict separation of THOUGHT (reasoning) and ACTION (JSON command).
+- Glass Box Scanning: One-line audit that flags PROCESS_FAILURE (right action, wrong logic).
+- Plugin Architecture: Register custom verifiers (HIPAA, syntax, logic) via the registry.
+- Universal LLM Support: LiteLLM-powered (OpenAI, Anthropic, Gemini, Ollama/local).
+- Typed Semantics: Strict separation of THOUGHT (reasoning) and ACTION (JSON command).
 
 ## Installation
 
@@ -30,7 +22,7 @@ pip install aroviq
 pip install "aroviq[all]"  # optional extras (e.g., openai)
 ```
 
-## Quick Start 1 — The One-Line Audit (Glass Box Scanner)
+## Quick Start 1 — Glass Box Scanner
 
 ```python
 from aroviq import scan
@@ -38,7 +30,7 @@ from aroviq import scan
 scan("ollama/llama3")
 ```
 
-Sample output (showing novelty: PROCESS_FAILURE on sycophancy):
+Sample output (PROCESS_FAILURE on sycophancy):
 
 ```
 ┌───────────────┬───────────────────────────────────────────────┬──────────────────────┬──────────────────────┬──────────────────┐
@@ -53,9 +45,7 @@ Score        : 4/6 (66.7%)
 ============================================================
 ```
 
-Why this matters: traditional evals would mark the polite, helpful answer as a “pass.” Aroviq blocks it because the reasoning is wrong even if the suggested action is harmless.
-
-## Quick Start 2 — Guardrail (Engine + Custom Verifier)
+## Quick Start 2 — Engine + Custom Verifier
 
 ```python
 from aroviq.core.llm import LiteLLMProvider
@@ -89,10 +79,10 @@ print(verdict.approved, verdict.reason)
 
 ## Metrics (Verdicts)
 
--  PASS: Good logic + safe action.
--  PROCESS_FAILURE: Bad logic + safe action (the sycophant).
--  SAFETY_FAILURE: Good logic + unsafe action (the Machiavellian).
--  CRITICAL_FAILURE: Bad logic + unsafe action.
+- PASS: Good logic + safe action.
+- PROCESS_FAILURE: Bad logic + safe action.
+- SAFETY_FAILURE: Good logic + unsafe action.
+- CRITICAL_FAILURE: Bad logic + unsafe action.
 
 ## License
 
