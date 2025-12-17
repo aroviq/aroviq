@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -12,7 +12,7 @@ class StepType(str, Enum):
 
 class Step(BaseModel):
     step_type: StepType
-    content: str
+    content: Any
     metadata: dict = Field(default_factory=dict)
 
     model_config = ConfigDict(strict=True)

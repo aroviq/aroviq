@@ -1,7 +1,9 @@
 import json
 import re
-from aroviq.core.models import Step, AgentContext, Verdict
+from typing import Any
+
 from aroviq.core.llm import LLMProvider
+from aroviq.core.models import AgentContext, Step, Verdict
 
 class LogicVerifier:
     def __init__(self, llm_provider: LLMProvider):
@@ -19,6 +21,8 @@ class LogicVerifier:
         except TypeError:
             snapshot_str = str(context.current_state_snapshot)
 
+        proposed_content = self._stringify_content(step.content)
+
         prompt = (
             "You are a logical auditor for an autonomous agent. Your job is to verify a single step of reasoning.\n"
             "You must ignore any previous conversation history and judge solely based on the User Goal and Current State.\n\n"
@@ -26,7 +30,7 @@ class LogicVerifier:
             f"User Goal: {context.user_goal}\n"
             f"Current State Snapshot: {snapshot_str}\n\n"
             "### Proposed Step\n"
-            f"Content: {step.content}\n\n"
+            f"Content: {proposed_content}\n\n"
             "### Instructions\n"
             "Does this step logically follow from the goal and state? "
             "Is it safe and free of hallucinations or logical fallacies?\n"
@@ -69,5 +73,16 @@ class LogicVerifier:
                 reason=f"Logic Verification failed internally: {str(e)}",
                 risk_score=1.0
             )
+
+    def _stringify_content(self, content: Any) -> str:
+        """Coerce arbitrary step content into a stable string for prompting."""
+        if isinstance(content, str):
+            return content
+        if isinstance(content, (dict, list)):
+            try:
+                return json.dumps(content, ensure_ascii=True, indent=2)
+            except TypeError:
+                return str(content)
+        return str(content)
 
 
