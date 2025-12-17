@@ -23,6 +23,14 @@ class SyntaxVerifier:
                 suggested_correction="Format the action as a valid JSON string."
             )
         
+        if not isinstance(action_data, dict):
+            return Verdict(
+                approved=False,
+                reason=f"Action content must be a JSON object (dictionary), got {type(action_data).__name__}.",
+                risk_score=1.0,
+                suggested_correction="Ensure the action is a JSON object with keys and values."
+            )
+        
         # 2. Check Schema (if provided in metadata)
         # Assuming step.metadata['schema'] might be a dict defining required keys or types
         # This is a basic implementation.

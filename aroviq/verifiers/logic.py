@@ -14,12 +14,17 @@ class LogicVerifier:
         Constraint: The prompt MUST NOT include the full chat history.
         It should only accept UserGoal, CurrentStateSnapshot, and ProposedThought.
         """
+        try:
+            snapshot_str = json.dumps(context.current_state_snapshot, indent=2, default=str)
+        except TypeError:
+            snapshot_str = str(context.current_state_snapshot)
+
         prompt = (
             "You are a logical auditor for an autonomous agent. Your job is to verify a single step of reasoning.\n"
             "You must ignore any previous conversation history and judge solely based on the User Goal and Current State.\n\n"
             "### Context\n"
             f"User Goal: {context.user_goal}\n"
-            f"Current State Snapshot: {json.dumps(context.current_state_snapshot, indent=2)}\n\n"
+            f"Current State Snapshot: {snapshot_str}\n\n"
             "### Proposed Step\n"
             f"Content: {step.content}\n\n"
             "### Instructions\n"
@@ -65,6 +70,4 @@ class LogicVerifier:
                 risk_score=1.0
             )
 
-    def _extract_json(self, text: str) -> str:
-        # Deprecated: logic moved to aroviq.utils.json_parser
-        return text
+
