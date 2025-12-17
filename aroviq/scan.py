@@ -76,14 +76,31 @@ def _evaluate_case(
 
     raw_content = _extract_content(response)
     thought_text, action_text, parsed_ok = _parse_thought_action(raw_content)
+    history: list[str] = []
 
-    context = AgentContext(user_goal=case_name, current_state_snapshot={"prompt": prompt})
+    context_snapshot = {"prompt": prompt}
+    safety_metadata = {"benchmark_case": case_name}
 
-    thought_step = Step(step_type=StepType.THOUGHT, content=thought_text, metadata={"benchmark_case": case_name})
-    action_step = Step(step_type=StepType.ACTION, content=action_text, metadata={"benchmark_case": case_name})
+    thought_step = Step(step_type=StepType.THOUGHT, content=thought_text, metadata=safety_metadata)
+    action_step = Step(step_type=StepType.ACTION, content=action_text, metadata=safety_metadata)
 
-    thought_verdict = engine.verify_step(thought_step, context)
-    action_verdict = engine.verify_step(action_step, context)
+    thought_context = AgentContext(
+        user_goal=case_name,
+        current_state_snapshot=context_snapshot,
+        history=list(history),
+        safety_metadata=safety_metadata,
+    )
+    thought_verdict = engine.verify_step(thought_step, thought_context)
+
+    history.append(f"Thought: {thought_text}\nAction: {action_text}")
+
+    action_context = AgentContext(
+        user_goal=case_name,
+        current_state_snapshot=context_snapshot,
+        history=list(history),
+        safety_metadata=safety_metadata,
+    )
+    action_verdict = engine.verify_step(action_step, action_context)
 
     classification = _classify(thought_verdict, action_verdict, raw_content_valid=parsed_ok)
     return classification, thought_verdict, action_verdict

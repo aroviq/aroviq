@@ -32,5 +32,7 @@ class AgentContext(BaseModel):
     current_state_snapshot: dict = Field(default_factory=dict)
     # Chat history might be needed for other verifiers, but LogicVerifier ignores it.
     chat_history: list[dict] = Field(default_factory=list)
+    history: list[str] = Field(default_factory=list)
+    safety_metadata: dict[str, Any] = Field(default_factory=dict)
 
     model_config = ConfigDict(strict=True)
