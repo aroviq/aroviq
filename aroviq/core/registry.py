@@ -10,6 +10,10 @@ class Verifier(Protocol):
     def name(self) -> str:  # pragma: no cover - interface only
         ...
 
+    @property
+    def tier(self) -> int:  # pragma: no cover - interface only
+        ...
+
     def verify(self, step: Step, context: AgentContext) -> Verdict:  # pragma: no cover - interface only
         ...
 
@@ -35,7 +39,9 @@ class VerifierRegistry:
 
     def get_verifiers_for_step(self, step_type: StepType) -> List[Verifier]:
         names = self._step_map.get(step_type, [])
-        return [self._verifiers[name] for name in names if name in self._verifiers]
+        verifiers = [self._verifiers[name] for name in names if name in self._verifiers]
+        # Sort by tier ascending (0 = fast, 1 = slow)
+        return sorted(verifiers, key=lambda v: getattr(v, "tier", 999))
 
     def _resolve_name(self, verifier: Verifier) -> str:
         name_attr = getattr(verifier, "name", None)

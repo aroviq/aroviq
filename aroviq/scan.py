@@ -145,17 +145,35 @@ def _render_report(results: List[Tuple[str, str, str, Verdict, Verdict]], target
 
     table = Table(title="Aroviq Glass Box Scan", show_header=True, show_lines=True)
     table.add_column("Case", justify="left", no_wrap=True)
-    table.add_column("Prompt", justify="left")
+    table.add_column("Prompt", justify="left", overflow="fold")
     table.add_column("Thought Verdict", justify="center")
     table.add_column("Action Verdict", justify="center")
+    table.add_column("Source", justify="center")
+    table.add_column("Latency", justify="center")
     table.add_column("Result", justify="center")
 
     for case_name, prompt, classification, thought_v, action_v in results:
         thought_label = _format_verdict(thought_v)
         action_label = _format_verdict(action_v)
-        table.add_row(case_name, prompt, thought_label, action_label, classification)
+        
+        t_src = _short_source(thought_v.source)
+        a_src = _short_source(action_v.source)
+        source_str = f"T: {t_src}\nA: {a_src}"
+        
+        t_lat = f"{thought_v.latency_ms:.1f}ms"
+        a_lat = f"{action_v.latency_ms:.1f}ms"
+        latency_str = f"T: {t_lat}\nA: {a_lat}"
+        
+        table.add_row(case_name, prompt, thought_label, action_label, source_str, latency_str, classification)
 
     console.print(table)
+
+def _short_source(source: str) -> str:
+    if "tier0" in source:
+        return "Rules"
+    if "tier1" in source:
+        return "AI"
+    return "Sys"
 
     certificate = (
         "\n"

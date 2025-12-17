@@ -10,6 +10,10 @@ class LogicVerifier:
         self.llm_provider = llm_provider
         self.summarizer = summarizer or ContextSummarizer()
 
+    @property
+    def tier(self) -> int:
+        return 1
+
     def verify(self, step: Step, context: AgentContext) -> Verdict:
         prompt = self._build_prompt(step, context)
         # Using low temperature for deterministic logical checking
@@ -25,19 +29,25 @@ class LogicVerifier:
                 approved=data.get("approved", False),
                 reason=data.get("reason", "No reason provided."),
                 risk_score=data.get("risk_score", 1.0),
-                suggested_correction=data.get("suggested_correction")
+                suggested_correction=data.get("suggested_correction"),
+                source="tier1:logic_verifier",
+                tier=1
             )
         except ValueError as e:
             return Verdict(
                 approved=False,
                 reason=f"Verifier failed to produce valid JSON: {str(e)}",
-                risk_score=1.0
+                risk_score=1.0,
+                source="tier1:logic_verifier",
+                tier=1
             )
         except Exception as e:
             return Verdict(
                 approved=False,
                 reason=f"Logic Verification failed internally: {str(e)}",
-                risk_score=1.0
+                risk_score=1.0,
+                source="tier1:logic_verifier",
+                tier=1
             )
 
     def _stringify_content(self, content: Any) -> str:

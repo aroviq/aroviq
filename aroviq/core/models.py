@@ -23,6 +23,9 @@ class Verdict(BaseModel):
     reason: str
     risk_score: float = Field(..., ge=0.0, le=1.0)
     suggested_correction: Optional[str] = None
+    source: str = "unknown"
+    latency_ms: float = 0.0
+    tier: int = 1
 
     model_config = ConfigDict(strict=True)
 

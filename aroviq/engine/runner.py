@@ -1,3 +1,4 @@
+import time
 from typing import Any, Callable, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -71,14 +72,27 @@ class AroviqEngine:
 
         verifiers = registry.get_verifiers_for_step(step.step_type)
         if not verifiers:
-            verdict = Verdict(approved=True, reason="No verifiers registered for this step type.", risk_score=0.0)
+            verdict = Verdict(
+                approved=True, 
+                reason="No verifiers registered for this step type.", 
+                risk_score=0.0,
+                source="system",
+                latency_ms=0.0,
+                tier=0
+            )
             self._notify_verdict(verdict)
             return verdict
 
         latest_verdict: Optional[Verdict] = None
 
         for verifier in verifiers:
+            start_time = time.perf_counter()
             latest_verdict = verifier.verify(step, context)
+            latency = (time.perf_counter() - start_time) * 1000.0
+
+            # Inject latency if not provided by verifier (or overwrite to be precise)
+            # using model_copy to update field
+            latest_verdict = latest_verdict.model_copy(update={"latency_ms": latency})
 
             if not latest_verdict.approved or self._is_risky(latest_verdict):
                 final = self._enforce_block(latest_verdict)
@@ -86,7 +100,14 @@ class AroviqEngine:
                 return final
 
         if latest_verdict is None:
-            latest_verdict = Verdict(approved=True, reason="Verifier registry returned no verdicts.", risk_score=0.0)
+            latest_verdict = Verdict(
+                approved=True, 
+                reason="Verifier registry returned no verdicts.", 
+                risk_score=0.0,
+                source="system",
+                latency_ms=0.0,
+                tier=0
+            )
 
         self._notify_verdict(latest_verdict)
         return latest_verdict
