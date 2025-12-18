@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any
 
 try:
     import litellm
@@ -20,20 +20,20 @@ class LLMProvider(ABC):
 class LiteLLMProvider(LLMProvider):
     """Vendor-agnostic provider that routes through LiteLLM."""
 
-    def __init__(self, model_name: str, api_key: Optional[str] = None, **kwargs: Any):
+    def __init__(self, model_name: str, api_key: str | None = None, **kwargs: Any):
         if litellm is None:
             raise ImportError("litellm is not installed. Please add it to your environment.")
 
         self.model_name = model_name
         # Prefer explicit key; fall back to common env vars supported by litellm dispatch.
         self.api_key = api_key or os.getenv("LITELLM_API_KEY") or os.getenv("OPENAI_API_KEY")
-        self.completion_kwargs: Dict[str, Any] = kwargs
+        self.completion_kwargs: dict[str, Any] = kwargs
 
     def generate(self, prompt: str, temperature: float = 0.0) -> str:
         if litellm is None:
             raise ImportError("litellm is not available at runtime.")
 
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "model": self.model_name,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": temperature,
@@ -73,5 +73,5 @@ class LiteLLMProvider(LLMProvider):
 class MockProvider(LLMProvider):
     """A mock provider for testing without API keys."""
 
-    def generate(self, prompt: str, temperature: float = 0.0) -> str:  # noqa: ARG002
+    def generate(self, prompt: str, temperature: float = 0.0) -> str:
         return '{"approved": true, "reason": "Mock approval from Clean Room.", "risk_score": 0.0}'

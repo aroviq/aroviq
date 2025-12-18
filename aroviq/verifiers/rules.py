@@ -1,12 +1,12 @@
 import re
-import time
-from typing import Callable, List, Union, Pattern
+from collections.abc import Callable
 
 from aroviq.core.models import AgentContext, Step, Verdict
 
+
 class RuleVerifier:
     """Base class for Tier 0 verifiers."""
-    
+
     @property
     def tier(self) -> int:
         return 0
@@ -15,7 +15,7 @@ class RuleVerifier:
         raise NotImplementedError
 
 class RegexGuard(RuleVerifier):
-    def __init__(self, patterns: List[str]):
+    def __init__(self, patterns: list[str]):
         self.patterns = [re.compile(p) if isinstance(p, str) else p for p in patterns]
 
     @property
@@ -34,7 +34,7 @@ class RegexGuard(RuleVerifier):
                     source="tier0:regex_guard",
                     tier=0
                 )
-        
+
         return Verdict(
             approved=True,
             reason="No blocking patterns matched.",
@@ -63,7 +63,7 @@ class SymbolicGuard(RuleVerifier):
                     source="tier0:symbolic_guard",
                     tier=0
                 )
-            
+
             return Verdict(
                 approved=True,
                 reason=f"Symbolic rule '{self.name}' passed.",
@@ -76,7 +76,7 @@ class SymbolicGuard(RuleVerifier):
             # If the rule function crashes, we block by default for safety
             return Verdict(
                 approved=False,
-                reason=f"Symbolic rule '{self.name}' raised exception: {str(e)}",
+                reason=f"Symbolic rule '{self.name}' raised exception: {e!s}",
                 risk_score=1.0,
                 source="tier0:symbolic_guard",
                 tier=0

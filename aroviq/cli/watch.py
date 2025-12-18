@@ -1,29 +1,31 @@
-from typing import Optional, List, Dict, Any
 from datetime import datetime
+from typing import Any
+
+from rich import box
 from rich.console import Console
 from rich.layout import Layout
 from rich.live import Live
 from rich.panel import Panel
-from rich.text import Text
 from rich.table import Table
-from rich import box
+from rich.text import Text
 
 from aroviq.core.models import Step, Verdict
 
+
 class Watchtower:
-    def __init__(self, console: Optional[Console] = None):
+    def __init__(self, console: Console | None = None):
         self.console = console or Console()
         self.layout = Layout()
-        
+
         # Data storage
-        self.agent_logs: List[Dict[str, Any]] = []
-        self.verdicts: List[Dict[str, Any]] = []
+        self.agent_logs: list[dict[str, Any]] = []
+        self.verdicts: list[dict[str, Any]] = []
         self.stats = {
             "total_steps": 0,
             "blocked": 0,
             "cost_est": 0.0
         }
-        
+
         # Setup Layout
         self.layout.split(
             Layout(name="main", ratio=9),
@@ -43,7 +45,7 @@ class Watchtower:
 
         for log in self.agent_logs[-20:]: # Show last 20
             table.add_row(log["time"], log["content"])
-            
+
         return Panel(
             table,
             title="[bold blue]Agent Stream[/]",
@@ -78,7 +80,7 @@ class Watchtower:
         grid.add_column(justify="center", ratio=1)
         grid.add_column(justify="center", ratio=1)
         grid.add_column(justify="center", ratio=1)
-        
+
         blocked_pct = 0.0
         if self.stats["total_steps"] > 0:
             blocked_pct = (self.stats["blocked"] / self.stats["total_steps"]) * 100
@@ -88,7 +90,7 @@ class Watchtower:
             f"[bold]Blocked:[/] {blocked_pct:.1f}%",
             f"[bold]Cost Est:[/] ${self.stats['cost_est']:.4f}"
         )
-        
+
         return Panel(
             grid,
             title="Session Stats",
@@ -110,10 +112,10 @@ class Watchtower:
         # Truncate for display
         if len(content) > 100:
             content = content[:97] + "..."
-            
+
         self.agent_logs.append({"time": timestamp, "content": content})
         self.stats["total_steps"] += 1
-        
+
         # Naive cost estimation (simulation)
         # Assuming roughly $0.002 per 1k chars (simulating GPT-4o-mini-like costs for example)
         self.stats["cost_est"] += len(step.content) * (0.002 / 1000)
@@ -130,8 +132,8 @@ class Watchtower:
     def live(self) -> Live:
         """Returns the Live display context manager configured for this Watchtower."""
         return Live(
-            get_renderable=self.update_view, 
-            refresh_per_second=4, 
+            get_renderable=self.update_view,
+            refresh_per_second=4,
             console=self.console,
             screen=True # Full screen mode
         )

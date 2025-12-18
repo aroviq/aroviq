@@ -1,21 +1,19 @@
 import os
 import sys
-import time
-import re
-from typing import List, Dict, Any, Optional
+from typing import Any
 
-from rich.console import Console
-from rich.table import Table
-from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn
 from rich import box
+from rich.console import Console
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
+from rich.table import Table
 
 # Ensure aroviq is in the path (assuming script is run from project root or benchmarks dir)
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from aroviq.core.models import Step, StepType, AgentContext, Verdict
+from aroviq.core.llm import LiteLLMProvider
+from aroviq.core.models import AgentContext, Step, StepType
 from aroviq.core.registry import registry
 from aroviq.engine.runner import AroviqEngine, EngineConfig
-from aroviq.core.llm import LiteLLMProvider
 from aroviq.verifiers.rules import RegexGuard
 
 # --- Configuration ---
@@ -52,14 +50,14 @@ MODES = [
         "model": None
     },
     {
-        "name": "Fast LLM (GPT-3.5-Turbo)", 
-        "type": "llm", 
+        "name": "Fast LLM (GPT-3.5-Turbo)",
+        "type": "llm",
         "model": "gpt-3.5-turbo",
         "env_check": "OPENAI_API_KEY"
     },
     {
-        "name": "Strong LLM (GPT-4o)", 
-        "type": "llm", 
+        "name": "Strong LLM (GPT-4o)",
+        "type": "llm",
         "model": "gpt-4o",
         "env_check": "OPENAI_API_KEY"
     }
@@ -73,18 +71,18 @@ def reset_registry():
     for key in registry._step_map:
         registry._step_map[key] = []
 
-def setup_mode(mode: Dict[str, Any], engine: AroviqEngine):
+def setup_mode(mode: dict[str, Any], engine: AroviqEngine):
     """Configure the engine's registry for the specific benchmarking mode."""
     reset_registry()
-    
+
     if mode["type"] == "tier0":
         # Register RegexGuard (Tier 0)
         # We explicitly add a rule for the test case
         regex_guard = RegexGuard(patterns=["sk-[a-zA-Z0-9]+"])
         registry.register(regex_guard, [StepType.THOUGHT, StepType.ACTION])
-        
+
         # Note: We do NOT register LogicVerifier (Tier 1)
-        
+
     elif mode["type"] == "llm":
         # Register ONLY LogicVerifier (Tier 1)
         # We purposely bypass Tier 0 to show the slowdown of using LLMs for everything
@@ -96,26 +94,26 @@ def run_benchmark():
 
     results = []
 
-    # Initialize Engine (Provider will be swapped per mode logic if needed, 
+    # Initialize Engine (Provider will be swapped per mode logic if needed,
     # but we just need a dummy provider for Tier 0 and a real one for LLM)
-    # We'll re-init engine in the loop or reuse and swap provider? 
+    # We'll re-init engine in the loop or reuse and swap provider?
     # Re-init is safer for config.
-    
+
     for mode in MODES:
         mode_name = mode["name"]
-        
+
         # Check requirements
         if mode.get("env_check") and not os.environ.get(mode["env_check"]):
             console.print(f"[yellow]Skipping {mode_name}: Missing {mode['env_check']}[/yellow]")
             continue
 
         console.print(f"[bold]Preparing: {mode_name}[/bold]")
-        
+
         # Setup Engine
         llm_model = mode.get("model") or "gpt-3.5-turbo" # Default for T0 dummy
         provider = LiteLLMProvider(model_name=llm_model)
         engine = AroviqEngine(config=EngineConfig(llm_provider=provider))
-        
+
         setup_mode(mode, engine)
 
         # Run Tests
@@ -127,11 +125,11 @@ def run_benchmark():
             console=console
         ) as progress:
             task = progress.add_task(f"Running {mode_name}...", total=len(TEST_CASES))
-            
+
             for case in TEST_CASES:
                 context = AgentContext(
                     user_goal="Benchmark Test",
-                    history=[], 
+                    history=[],
                     current_state_snapshot={}
                 )
                 step = Step(
@@ -139,11 +137,11 @@ def run_benchmark():
                     content=case["content"]
                 )
 
-                # Warmup? No, we want cold start latency typically, or average. 
+                # Warmup? No, we want cold start latency typically, or average.
                 # Let's just run once.
-                
+
                 verdict = engine.verify_step(step, context)
-                
+
                 results.append({
                     "mode": mode_name,
                     "case": case["name"],
@@ -151,12 +149,12 @@ def run_benchmark():
                     "desc": case["desc"]
                 })
                 progress.advance(task)
-                
+
     print_results(results)
 
-def print_results(results: List[Dict[str, Any]]):
+def print_results(results: list[dict[str, Any]]):
     table = Table(title="Benchmark Results: Tier 0 vs Tier 1", box=box.ROUNDED, show_lines=True)
-    
+
     table.add_column("Mode", style="cyan", no_wrap=True)
     table.add_column("Test Case", style="white")
     table.add_column("Verdict", justify="center")
@@ -170,13 +168,13 @@ def print_results(results: List[Dict[str, Any]]):
         v = res["verdict"]
         mode = res["mode"]
         case = res["case"]
-        
+
         # Style the Verdict
         if v.approved:
             verdict_str = "[green]PASS[/green]"
         else:
             verdict_str = "[red]BLOCK[/red]"
-            
+
         # Style the Latency
         latency_val = v.latency_ms
         if latency_val < 10.0:
@@ -189,16 +187,16 @@ def print_results(results: List[Dict[str, Any]]):
         # Source
         source_short = v.source.split(":")[0] if ":" in v.source else v.source
         source_str = f"[blue]{source_short.upper()}[/blue]"
-        
+
         # Speedup Calculation
         # Assuming we have a T0 baseline for this case
         speedup_str = "-"
-        
+
         # Capture T0 latency for this case
         if "Baseline" in mode:
             tier0_latencies[case] = latency_val
             speedup_str = "Baseline"
-        
+
         # Calculate speedup if we have T0 data
         if "LLM" in mode and case in tier0_latencies:
             baseline = tier0_latencies[case]
@@ -219,7 +217,7 @@ def print_results(results: List[Dict[str, Any]]):
             source_str,
             speedup_str
         )
-        
+
     console.print("\n")
     console.print(table)
     console.print("\n[bold green]Conclusion:[/bold green] Tier 0 provides near-instant verification for known patterns, protecting the LLM from processing obvious threats.")

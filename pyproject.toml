@@ -25,6 +25,8 @@ openai = ["openai"]
 pytest = "^8.0.0"
 ruff = "^0.3.0"
 mypy = "^1.8.0"
+bandit = "^1.7.0"
+hypothesis = "^6.0.0"
 
 [tool.poetry.scripts]
 aroviq = "aroviq.__main__:main"

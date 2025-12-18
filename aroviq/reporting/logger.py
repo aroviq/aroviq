@@ -1,7 +1,8 @@
 import json
 from datetime import datetime
-from typing import Optional
+
 from aroviq.core.models import Step, Verdict
+
 
 class FileLogger:
     """
@@ -9,10 +10,10 @@ class FileLogger:
     """
     def __init__(self, filepath: str = "aroviq_trace.jsonl"):
         self.filepath = filepath
-        # We verify we can open the file, but we'll open/close on write 
+        # We verify we can open the file, but we'll open/close on write
         # or keep open depending on preference. Keeping open is more clear for 'streams'.
         # For simplicity in this context, we'll append on each log to facilitate robustness.
-        
+
     def log(self, step: Step, verdict: Verdict) -> None:
         """
         Logs a single verification event (Step + Verdict).
@@ -26,7 +27,7 @@ class FileLogger:
             "reason": verdict.reason,
             "correction": verdict.suggested_correction
         }
-        
+
         with open(self.filepath, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry) + "\n")
 

@@ -1,12 +1,13 @@
 import json
-from typing import Any, Optional
+from typing import Any
 
 from aroviq.core.llm import LLMProvider
 from aroviq.core.models import AgentContext, Step, Verdict
 from aroviq.core.summarizer import ContextSummarizer
 
+
 class LogicVerifier:
-    def __init__(self, llm_provider: LLMProvider, summarizer: Optional[ContextSummarizer] = None):
+    def __init__(self, llm_provider: LLMProvider, summarizer: ContextSummarizer | None = None):
         self.llm_provider = llm_provider
         self.summarizer = summarizer or ContextSummarizer()
 
@@ -14,15 +15,18 @@ class LogicVerifier:
     def tier(self) -> int:
         return 1
 
+    def name(self) -> str:
+        return "logic_verifier"
+
     def verify(self, step: Step, context: AgentContext) -> Verdict:
         prompt = self._build_prompt(step, context)
         # Using low temperature for deterministic logical checking
         response_str = self.llm_provider.generate(prompt, temperature=0.0)
-        
+
         try:
             from aroviq.utils.json_parser import parse_llm_json
             data = parse_llm_json(response_str)
-            
+
             # Normalize keys to match Verdict model if necessary or rely on direct mapping
             # Verdict requires: approved, reason, risk_score
             return Verdict(
@@ -36,7 +40,7 @@ class LogicVerifier:
         except ValueError as e:
             return Verdict(
                 approved=False,
-                reason=f"Verifier failed to produce valid JSON: {str(e)}",
+                reason=f"Verifier failed to produce valid JSON: {e!s}",
                 risk_score=1.0,
                 source="tier1:logic_verifier",
                 tier=1
@@ -44,7 +48,7 @@ class LogicVerifier:
         except Exception as e:
             return Verdict(
                 approved=False,
-                reason=f"Logic Verification failed internally: {str(e)}",
+                reason=f"Logic Verification failed internally: {e!s}",
                 risk_score=1.0,
                 source="tier1:logic_verifier",
                 tier=1

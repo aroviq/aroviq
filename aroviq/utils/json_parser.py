@@ -1,9 +1,10 @@
+import ast
 import json
 import re
-import ast
-from typing import Any, Dict
+from typing import Any
 
-def parse_llm_json(text: str) -> Dict[str, Any]:
+
+def parse_llm_json(text: str) -> dict[str, Any]:
     """
     Parses JSON from a string that might contain Markdown code blocks
     or python-style dict syntax. Robustly handles trailing commas.
@@ -29,7 +30,7 @@ def parse_llm_json(text: str) -> Dict[str, Any]:
     match_braces = re.search(r"(\{.*\})", text, re.DOTALL)
     if match_braces:
         text = match_braces.group(1)
-    
+
     # 3. Handle trailing commas (common LLM error)
     # This regex looks for a comma followed by closing brace/bracket and removes it.
     # It removes ,} and ,] patterns possibly separated by whitespace.
@@ -40,14 +41,14 @@ def parse_llm_json(text: str) -> Dict[str, Any]:
         return json.loads(text)
     except json.JSONDecodeError:
         pass
-    
+
     # 5. Try ast.literal_eval (handling python-style dicts)
     try:
         # Note: ast.literal_eval handles trailing commas in Python syntax naturally
         return ast.literal_eval(text)
     except (ValueError, SyntaxError):
         pass
-        
+
     # 6. Fallback: specific fix for single quotes acting as JSON
     try:
         # Replace single quotes with double quotes (rough heuristic)

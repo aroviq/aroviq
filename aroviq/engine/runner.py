@@ -1,5 +1,5 @@
 import time
-from typing import Any, Callable, List, Optional
+from collections.abc import Callable
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -24,8 +24,8 @@ class EngineConfig(BaseModel):
 class AroviqEngine:
     def __init__(self, config: EngineConfig):
         self.config = config
-        self._step_callbacks: List[Callable[[Step], None]] = []
-        self._verdict_callbacks: List[Callable[[Verdict], None]] = []
+        self._step_callbacks: list[Callable[[Step], None]] = []
+        self._verdict_callbacks: list[Callable[[Verdict], None]] = []
 
         self.llm_provider = config.llm_provider
 
@@ -73,8 +73,8 @@ class AroviqEngine:
         verifiers = registry.get_verifiers_for_step(step.step_type)
         if not verifiers:
             verdict = Verdict(
-                approved=True, 
-                reason="No verifiers registered for this step type.", 
+                approved=True,
+                reason="No verifiers registered for this step type.",
                 risk_score=0.0,
                 source="system",
                 latency_ms=0.0,
@@ -83,7 +83,7 @@ class AroviqEngine:
             self._notify_verdict(verdict)
             return verdict
 
-        latest_verdict: Optional[Verdict] = None
+        latest_verdict: Verdict | None = None
 
         for verifier in verifiers:
             start_time = time.perf_counter()
@@ -101,8 +101,8 @@ class AroviqEngine:
 
         if latest_verdict is None:
             latest_verdict = Verdict(
-                approved=True, 
-                reason="Verifier registry returned no verdicts.", 
+                approved=True,
+                reason="Verifier registry returned no verdicts.",
                 risk_score=0.0,
                 source="system",
                 latency_ms=0.0,

@@ -3,12 +3,13 @@ from typing import Any
 
 from aroviq.core.models import AgentContext, Step, StepType, Verdict
 
+
 class SyntaxVerifier:
     @property
     def tier(self) -> int:
         return 0
 
-    def verify(self, step: Step, context: AgentContext) -> Verdict:  # noqa: ARG002 - context reserved for future use
+    def verify(self, step: Step, context: AgentContext) -> Verdict:
         if step.step_type == StepType.ACTION:
             return self._verify_action(step)
         if step.step_type == StepType.THOUGHT:

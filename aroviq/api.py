@@ -1,7 +1,10 @@
 import functools
-from typing import Callable, Any, Optional
-from aroviq.core.models import Step, AgentContext, Verdict
+from collections.abc import Callable
+from typing import Any
+
+from aroviq.core.models import AgentContext, Step, Verdict
 from aroviq.engine.runner import AroviqEngine
+
 
 class VerificationError(Exception):
     """Raised when a step fails verification."""
@@ -42,7 +45,7 @@ class Aroviq:
 
             # 2. Extract AgentContext to pass to the verifier
             context = self._extract_context(args, kwargs)
-            
+
             if not context:
                  # If we can't find context, we might choose to fail open or closed.
                  # Failing closed (raising error) is safer for a verification engine.
@@ -61,19 +64,19 @@ class Aroviq:
 
             # 5. Return the approved step
             return step
-        
+
         return wrapper
 
-    def _extract_context(self, args: tuple, kwargs: dict) -> Optional[AgentContext]:
+    def _extract_context(self, args: tuple, kwargs: dict) -> AgentContext | None:
         """Helper to find AgentContext in function arguments."""
         # Check positional args
         for arg in args:
             if isinstance(arg, AgentContext):
                 return arg
-        
+
         # Check keyword args
         for value in kwargs.values():
             if isinstance(value, AgentContext):
                 return value
-        
+
         return None

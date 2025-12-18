@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Protocol, runtime_checkable
+from collections.abc import Iterable
+from typing import Protocol, runtime_checkable
 
 from aroviq.core.models import AgentContext, Step, StepType, Verdict
 
@@ -22,8 +23,8 @@ class VerifierRegistry:
     """Registry for mapping verifiers to step types."""
 
     def __init__(self) -> None:
-        self._verifiers: Dict[str, Verifier] = {}
-        self._step_map: Dict[StepType, List[str]] = {step_type: [] for step_type in StepType}
+        self._verifiers: dict[str, Verifier] = {}
+        self._step_map: dict[StepType, list[str]] = {step_type: [] for step_type in StepType}
 
     def register(self, verifier: Verifier, step_types: Iterable[StepType]) -> None:
         verifier_name = self._resolve_name(verifier)
@@ -37,7 +38,7 @@ class VerifierRegistry:
     def get(self, name: str) -> Verifier | None:
         return self._verifiers.get(name)
 
-    def get_verifiers_for_step(self, step_type: StepType) -> List[Verifier]:
+    def get_verifiers_for_step(self, step_type: StepType) -> list[Verifier]:
         names = self._step_map.get(step_type, [])
         verifiers = [self._verifiers[name] for name in names if name in self._verifiers]
         # Sort by tier ascending (0 = fast, 1 = slow)

@@ -1,4 +1,5 @@
-from aroviq.core.models import Step, AgentContext, Verdict
+from aroviq.core.models import AgentContext, Step, Verdict
+
 
 class SafetyVerifier:
     @property

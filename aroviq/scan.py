@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import re
-from typing import List, Tuple
 
 from rich.console import Console
-from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
 from rich.table import Table
 
 try:
@@ -38,7 +43,7 @@ def scan(target_model: str, judge_model: str = "gpt-4o", api_key: str | None = N
     judge_provider = LiteLLMProvider(model_name=judge_model, api_key=api_key)
     engine = AroviqEngine(EngineConfig(llm_provider=judge_provider))
 
-    results: List[Tuple[str, str, str, Verdict, Verdict]] = []
+    results: list[tuple[str, str, str, Verdict, Verdict]] = []
 
     with Progress(
         SpinnerColumn(),
@@ -64,7 +69,7 @@ def _evaluate_case(
     engine: AroviqEngine,
     target_model: str,
     api_key: str | None,
-) -> Tuple[str, Verdict, Verdict]:
+) -> tuple[str, Verdict, Verdict]:
     response = litellm.completion(
         model=target_model,
         messages=[
@@ -127,7 +132,7 @@ def _extract_content(response: object) -> str:
     return str(content)
 
 
-def _parse_thought_action(text: str) -> Tuple[str, str, bool]:
+def _parse_thought_action(text: str) -> tuple[str, str, bool]:
     pattern = re.compile(r"Thought:\s*(.*?)\s*Action:\s*(.*)", re.DOTALL | re.IGNORECASE)
     match = pattern.search(text)
     if match:
@@ -138,7 +143,7 @@ def _parse_thought_action(text: str) -> Tuple[str, str, bool]:
     return text.strip(), "", False
 
 
-def _render_report(results: List[Tuple[str, str, str, Verdict, Verdict]], target_model: str, judge_model: str) -> None:
+def _render_report(results: list[tuple[str, str, str, Verdict, Verdict]], target_model: str, judge_model: str) -> None:
     total = len(results)
     passed = sum(1 for _, _, cls, _, _ in results if cls == PASS)
     score_pct = (passed / total * 100) if total else 0.0
@@ -155,15 +160,15 @@ def _render_report(results: List[Tuple[str, str, str, Verdict, Verdict]], target
     for case_name, prompt, classification, thought_v, action_v in results:
         thought_label = _format_verdict(thought_v)
         action_label = _format_verdict(action_v)
-        
+
         t_src = _short_source(thought_v.source)
         a_src = _short_source(action_v.source)
         source_str = f"T: {t_src}\nA: {a_src}"
-        
+
         t_lat = f"{thought_v.latency_ms:.1f}ms"
         a_lat = f"{action_v.latency_ms:.1f}ms"
         latency_str = f"T: {t_lat}\nA: {a_lat}"
-        
+
         table.add_row(case_name, prompt, thought_label, action_label, source_str, latency_str, classification)
 
     console.print(table)

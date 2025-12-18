@@ -1,7 +1,5 @@
-import types
 import importlib
-
-import pytest
+import types
 
 from aroviq.core.llm import LLMProvider
 from aroviq.core.models import AgentContext, Step, StepType, Verdict
@@ -16,7 +14,7 @@ class DummyLLM(LLMProvider):
         self.response = response
         self.last_prompt: str | None = None
 
-    def generate(self, prompt: str, temperature: float = 0.0) -> str:  # noqa: ARG002
+    def generate(self, prompt: str, temperature: float = 0.0) -> str:
         self.last_prompt = prompt
         return self.response
 
@@ -25,17 +23,17 @@ class DummySummarizer(ContextSummarizer):
     def __init__(self, summary: str):
         self.summary = summary
 
-    def summarize(self, history):  # noqa: ANN001
+    def summarize(self, history):
         return self.summary
 
 
 class ExplodingProvider:
-    def generate(self, prompt: str, temperature: float = 0.0) -> str:  # noqa: ARG002
+    def generate(self, prompt: str, temperature: float = 0.0) -> str:
         raise AssertionError("provider should not be called")
 
 
 class ErroringProvider:
-    def generate(self, prompt: str, temperature: float = 0.0) -> str:  # noqa: ARG002
+    def generate(self, prompt: str, temperature: float = 0.0) -> str:
         raise RuntimeError("boom")
 
 
@@ -46,7 +44,7 @@ def test_logic_verifier_builds_safety_prompt_and_parses_response():
 
     context = AgentContext(
         user_goal="Clean temp",
-        current_state_snapshot={"cwd": "/tmp"},
+        current_state_snapshot={"cwd": "/tmp"},  # nosec
         history=["Thought: prepare", "Action: list temp"],
         safety_metadata={"permission": "delete"},
     )
@@ -59,7 +57,7 @@ def test_logic_verifier_builds_safety_prompt_and_parses_response():
     assert "[Safety Context]" in llm.last_prompt
     assert "User authorized deletion" in llm.last_prompt
     assert "permission" in llm.last_prompt
-    assert "/tmp" in llm.last_prompt
+    assert "/tmp" in llm.last_prompt  # nosec
     assert "rm -rf" in llm.last_prompt
 
 
@@ -89,7 +87,7 @@ def test_scan_threads_history_into_action_context(monkeypatch):
     content = "Thought: consider file deletion\nAction: {\"op\": \"delete\", \"path\": \"/tmp/foo\"}"
     dummy_response = DummyResponse(content)
 
-    def fake_completion(**kwargs):  # noqa: ARG001
+    def fake_completion(**kwargs):
         return dummy_response
 
     monkeypatch.setattr(scan_module.litellm, "completion", fake_completion)

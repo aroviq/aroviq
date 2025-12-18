@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-from typing import List, Optional
-
 from aroviq.core.llm import LiteLLMProvider
 
 
 class ContextSummarizer:
     """Summarize agent history into a compact safety context."""
 
-    def __init__(self, model_name: str = "gpt-3.5-turbo", api_key: Optional[str] = None, provider: Optional[LiteLLMProvider] = None):
+    def __init__(self, model_name: str = "gpt-3.5-turbo", api_key: str | None = None, provider: LiteLLMProvider | None = None):
         self.provider = provider or LiteLLMProvider(model_name=model_name, api_key=api_key)
 
-    def summarize(self, history: List[str]) -> str:
+    def summarize(self, history: list[str]) -> str:
         if not history:
             return "No prior steps or permissions recorded."
 

@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-import sys
 import fire
+
 from aroviq.cli.report import generate_report
-from aroviq.cli.watch import Watchtower
+
 
 class CLI:
     def report(self, file: str = "aroviq_trace.jsonl"):
         """Generates a safety report from a log file."""
         generate_report(file)
-        
+
     def watch(self):
         """Launches the verifiable watchtower (TUI)."""
         # This is just a placeholder to show we can group commands.

@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -22,7 +22,7 @@ class Verdict(BaseModel):
     approved: bool
     reason: str
     risk_score: float = Field(..., ge=0.0, le=1.0)
-    suggested_correction: Optional[str] = None
+    suggested_correction: str | None = None
     source: str = "unknown"
     latency_ms: float = 0.0
     tier: int = 1
