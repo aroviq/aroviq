@@ -50,6 +50,12 @@ MODES = [
         "model": None
     },
     {
+        "name": "Gemini Pro 1.5 (Tier 1)",
+        "type": "llm",
+        "model": "gemini/gemini-1.5-pro",
+        "env_check": "GOOGLE_API_KEY"
+    },
+    {
         "name": "Fast LLM (GPT-3.5-Turbo)",
         "type": "llm",
         "model": "gpt-3.5-turbo",
@@ -140,7 +146,13 @@ def run_benchmark():
                 # Warmup? No, we want cold start latency typically, or average.
                 # Let's just run once.
 
-                verdict = engine.verify_step(step, context)
+                try:
+                    verdict = engine.verify_step(step, context)
+                except Exception as e:
+                    console.print(f"[red]Error in {mode_name}: {e}[/red]")
+                    # Create a dummy failure verdict to continue the table
+                    from aroviq.core.models import Verdict
+                    verdict = Verdict(approved=False, reason=f"Error: {str(e)}", risk_score=1.0, source="Error", latency_ms=0.0)
 
                 results.append({
                     "mode": mode_name,
