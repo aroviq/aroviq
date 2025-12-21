@@ -2,21 +2,9 @@ import functools
 from collections.abc import Callable
 from typing import Any
 
+from aroviq.core.exceptions import SecurityException
 from aroviq.core.models import AgentContext, Step, Verdict
 from aroviq.engine.runner import AroviqEngine
-
-
-class VerificationError(Exception):
-    """Raised when a step fails verification."""
-    def __init__(self, verdict: Verdict):
-        self.verdict = verdict
-        message = (
-            f"Verification Failed!\n"
-            f"Reason: {verdict.reason}\n"
-            f"Risk Score: {verdict.risk_score}\n"
-            f"Suggestion: {verdict.suggested_correction or 'No suggestion provided.'}"
-        )
-        super().__init__(message)
 
 
 class Aroviq:
@@ -36,7 +24,7 @@ class Aroviq:
         (either positional or keyword), so the guard can extract it for verification.
         
         Raises:
-            VerificationError: If the step is rejected by the engine.
+            SecurityException: If the step is rejected by the engine.
         """
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Step:
@@ -60,7 +48,13 @@ class Aroviq:
 
             # 4. Enforce the verdict
             if not verdict.approved:
-                raise VerificationError(verdict)
+                message = (
+                    f"Verification Failed!\n"
+                    f"Reason: {verdict.reason}\n"
+                    f"Risk Score: {verdict.risk_score}\n"
+                    f"Suggestion: {verdict.suggested_correction or 'No suggestion provided.'}"
+                )
+                raise SecurityException(message, verdict=verdict)
 
             # 5. Return the approved step
             return step

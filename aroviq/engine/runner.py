@@ -1,3 +1,4 @@
+import logging
 import time
 from collections.abc import Callable
 
@@ -10,6 +11,8 @@ from aroviq.verifiers.grounding import GroundingVerifier
 from aroviq.verifiers.logic import LogicVerifier
 from aroviq.verifiers.safety import SafetyVerifier
 from aroviq.verifiers.syntax import SyntaxVerifier
+
+logger = logging.getLogger(__name__)
 
 
 class EngineConfig(BaseModel):
@@ -54,16 +57,16 @@ class AroviqEngine:
         for cb in self._step_callbacks:
             try:
                 cb(step)
-            except Exception:
+            except Exception as e:
                 # Callbacks should never break engine flow.
-                pass
+                logger.error(f"Error in step callback: {e}", exc_info=True)
 
     def _notify_verdict(self, verdict: Verdict) -> None:
         for cb in self._verdict_callbacks:
             try:
                 cb(verdict)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"Error in verdict callback: {e}", exc_info=True)
 
     def verify_step(self, step: Step, context: AgentContext) -> Verdict:
         """Run all registered verifiers for a step type with fail-fast semantics."""

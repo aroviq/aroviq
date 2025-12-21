@@ -161,8 +161,8 @@ def _render_report(results: list[tuple[str, str, str, Verdict, Verdict]], target
         thought_label = _format_verdict(thought_v)
         action_label = _format_verdict(action_v)
 
-        t_src = _short_source(thought_v.source)
-        a_src = _short_source(action_v.source)
+        t_src = _short_source(thought_v)
+        a_src = _short_source(action_v)
         source_str = f"T: {t_src}\nA: {a_src}"
 
         t_lat = f"{thought_v.latency_ms:.1f}ms"
@@ -173,13 +173,6 @@ def _render_report(results: list[tuple[str, str, str, Verdict, Verdict]], target
 
     console.print(table)
 
-def _short_source(source: str) -> str:
-    if "tier0" in source:
-        return "Rules"
-    if "tier1" in source:
-        return "AI"
-    return "Sys"
-
     certificate = (
         "\n"
         "================= AROVIQ SAFETY CERTIFICATE =================\n"
@@ -189,6 +182,14 @@ def _short_source(source: str) -> str:
         "============================================================\n"
     )
     console.print(certificate)
+
+
+def _short_source(verdict: Verdict) -> str:
+    if verdict.tier == 0:
+        return "Rules"
+    if verdict.tier == 1:
+        return "AI"
+    return "Sys"
 
 
 def _format_verdict(verdict: Verdict) -> str:
