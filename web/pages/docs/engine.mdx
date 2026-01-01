@@ -1,0 +1,162 @@
+# Verification Engine
+
+The Aroviq Verification Engine is the core component that orchestrates the multi-tier verification pipeline.
+
+## Overview
+
+The engine processes each agent action through a series of verification tiers:
+
+- **Tier 0**: Deterministic checks (regex, syntax, PII detection) - executes in &lt;1ms
+- **Tier 1**: LLM-based semantic checks (hallucination, grounding) - executes in ~100-500ms
+
+## Basic Usage
+
+```python
+from aroviq import AroviqEngine, Step
+
+engine = AroviqEngine()
+
+step = Step(
+    action="call_tool",
+    tool_name="bash",
+    args={"command": "cat /etc/passwd"}
+)
+
+verdict = engine.verify_step(step)
+
+if not verdict.passed:
+    print(f"Blocked: {verdict.reason}")
+```
+
+## The Step Object
+
+```python
+from aroviq import Step
+
+step = Step(
+    action="call_tool",      # Action type
+    tool_name="bash",        # Tool being called
+    args={                   # Tool arguments
+        "command": "ls -la"
+    },
+    context={                # Optional context
+        "user_query": "List files in current directory",
+        "conversation_history": [...]
+    }
+)
+```
+
+## The Verdict Object
+
+```python
+@dataclass
+class Verdict:
+    passed: bool              # Whether the action is allowed
+    reason: str               # Human-readable explanation
+    risk_score: float         # 0.0 (safe) to 1.0 (dangerous)
+    confidence: float         # Model confidence in verdict
+    tier: int                 # Which tier made the decision
+    verifier: str             # Which verifier flagged (if blocked)
+    metadata: dict            # Additional details
+```
+
+## Engine Methods
+
+### `verify_step(step, context=None)`
+
+Verify a single step through all tiers.
+
+```python
+verdict = engine.verify_step(step)
+```
+
+### `verify_batch(steps, parallel=True)`
+
+Verify multiple steps, optionally in parallel.
+
+```python
+verdicts = engine.verify_batch([step1, step2, step3])
+```
+
+### `add_verifier(name, verifier, tier=0)`
+
+Dynamically add a verifier at runtime.
+
+```python
+engine.add_verifier("my_check", MyVerifier(), tier=0)
+```
+
+## Built-in Verifiers
+
+### Tier 0 (Deterministic)
+
+| Verifier | Description |
+| :--- | :--- |
+| `regex_safety` | Pattern-based detection of dangerous commands |
+| `pii_fast` | Fast PII detection (SSN, credit cards, etc.) |
+| `syntax_check` | Validates code syntax before execution |
+| `path_traversal` | Detects directory traversal attacks |
+
+### Tier 1 (LLM-based)
+
+| Verifier | Description |
+| :--- | :--- |
+| `hallucination_judge` | Detects fabricated information |
+| `grounding_check` | Ensures responses are grounded in context |
+| `intent_alignment` | Verifies action matches user intent |
+
+## Execution Flow
+
+```
+Step Input
+    │
+    ▼
+┌─────────────────────────────────────┐
+│  Tier 0: Deterministic Checks       │
+│  - regex_safety                     │
+│  - pii_fast                         │
+│  - syntax_check                     │
+│  Latency: <1ms                      │
+└─────────────────────────────────────┘
+    │
+    │ (if passed)
+    ▼
+┌─────────────────────────────────────┐
+│  Tier 1: LLM-based Checks           │
+│  - hallucination_judge              │
+│  - grounding_check                  │
+│  Latency: ~100-500ms                │
+└─────────────────────────────────────┘
+    │
+    ▼
+  Verdict
+```
+
+## Error Handling
+
+```python
+from aroviq import AroviqEngine, SecurityException
+
+engine = AroviqEngine(strict=True)
+
+try:
+    verdict = engine.verify_step(malicious_step)
+except SecurityException as e:
+    print(f"Security violation: {e}")
+    # Log, alert, or take remediation action
+```
+
+## Performance Tips
+
+1. **Use Tier 0 only for hot paths**: Skip Tier 1 for low-risk actions
+2. **Batch verification**: Use `verify_batch()` for multiple steps
+3. **Cache verdicts**: Enable caching for repeated identical steps
+
+```python
+engine = AroviqEngine(
+    config=Config(
+        cache_enabled=True,
+        cache_ttl=300  # 5 minutes
+    )
+)
+```

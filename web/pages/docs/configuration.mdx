@@ -1,0 +1,121 @@
+# Configuration
+
+Aroviq provides flexible configuration options to customize the verification engine for your specific use case.
+
+## Configuration File
+
+Aroviq looks for a `aroviq_config.yml` file in your project root.
+
+```yaml
+# aroviq_config.yml
+tiers:
+  0:
+    - regex_safety
+    - pii_fast
+    - syntax_check
+  1:
+    - hallucination_judge
+    - grounding_check
+
+thresholds:
+  risk_score: 0.7
+  confidence: 0.8
+
+options:
+  strict_mode: true
+  log_level: INFO
+  timeout_ms: 50
+```
+
+## Environment Variables
+
+```bash
+# LLM Provider Keys (required for Tier 1)
+export GOOGLE_API_KEY="AIza..."
+# OR
+export OPENAI_API_KEY="sk-..."
+# OR
+export ANTHROPIC_API_KEY="sk-ant-..."
+
+# Aroviq Options
+export AROVIQ_STRICT_MODE="true"
+export AROVIQ_LOG_LEVEL="INFO"
+export AROVIQ_TIMEOUT_MS="50"
+```
+
+## Programmatic Configuration
+
+You can also configure Aroviq directly in Python:
+
+```python
+from aroviq import AroviqEngine, Config
+
+config = Config(
+    tiers={
+        0: ["regex_safety", "pii_fast"],
+        1: ["hallucination_judge"]
+    },
+    thresholds={
+        "risk_score": 0.7,
+        "confidence": 0.8
+    },
+    strict_mode=True,
+    timeout_ms=50
+)
+
+engine = AroviqEngine(config=config)
+```
+
+## Configuration Options
+
+| Option | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `tiers` | `dict` | See below | Maps tier numbers to lists of verifier names |
+| `thresholds.risk_score` | `float` | `0.7` | Maximum allowed risk score (0-1) |
+| `thresholds.confidence` | `float` | `0.8` | Minimum confidence required for verdicts |
+| `strict_mode` | `bool` | `True` | Raise exceptions on verification failure |
+| `timeout_ms` | `int` | `50` | Timeout for Tier 0 verifiers |
+| `log_level` | `str` | `INFO` | Logging verbosity |
+
+## Default Tiers
+
+```python
+DEFAULT_TIERS = {
+    0: [  # Deterministic, <1ms
+        "regex_safety",
+        "pii_fast", 
+        "syntax_check"
+    ],
+    1: [  # LLM-based, ~100-500ms
+        "hallucination_judge",
+        "grounding_check"
+    ]
+}
+```
+
+## Custom Verifiers
+
+You can register custom verifiers:
+
+```python
+from aroviq import register_verifier, Verifier
+
+@register_verifier("my_custom_check")
+class MyVerifier(Verifier):
+    tier = 0  # Deterministic tier
+    
+    def verify(self, step, context):
+        # Your verification logic
+        if "dangerous" in step.args.get("command", ""):
+            return Verdict(passed=False, reason="Dangerous command detected")
+        return Verdict(passed=True)
+```
+
+Then use it in your config:
+
+```yaml
+tiers:
+  0:
+    - regex_safety
+    - my_custom_check
+```

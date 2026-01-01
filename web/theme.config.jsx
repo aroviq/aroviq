@@ -3,7 +3,7 @@ import React from 'react'
 const config = {
     logo: (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img src="/logo.png" alt="Aroviq" width={32} height={32} />
+            <img src="/logonotext.png" alt="Aroviq" width={32} height={32} />
             <span style={{ fontWeight: 800, fontSize: '1.2rem', letterSpacing: '-0.02em' }}>Aroviq</span>
         </div>
     ),
@@ -31,8 +31,8 @@ const config = {
     },
     darkMode: true,
     nextThemes: {
-        defaultTheme: 'dark',
-        forcedTheme: 'dark' // Force dark mode for that premium feel
+        defaultTheme: 'system',
+        // Force dark mode for that premium feel
     },
     navbar: {
         extraContent: (

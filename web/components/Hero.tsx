@@ -35,7 +35,7 @@ export const Hero = () => {
                     transition={{ duration: 1 }}
                     src="/logo.png"
                     alt="Aroviq Logo"
-                    className="relative z-10 w-48 h-auto md:w-64 max-w-full object-contain"
+                    className="relative z-10 w-64 h-auto md:w-80 lg:w-96 max-w-full object-contain"
                 />
             </div>
 
@@ -55,7 +55,7 @@ export const Hero = () => {
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.4 }}
-                    className="text-6xl md:text-8xl lg:text-9xl font-black tracking-tighter text-center"
+                    className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tighter text-center"
                 >
                     <span className="text-white">Trust, but </span>
                     <span className="bg-clip-text text-transparent bg-gradient-to-r from-aroviq-cyan via-white to-aroviq-purple text-glow">

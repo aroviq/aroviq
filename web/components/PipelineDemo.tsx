@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Shield, ShieldAlert, ShieldCheck, Zap, Brain, Cpu, Activity } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -77,13 +77,16 @@ export const PipelineDemo = () => {
                         glowColor="rgba(112, 0, 255, 0.5)"
                     />
 
-                    <div className="relative">
+                    <div className="relative group">
                         <motion.div
                             animate={{
                                 scale: activeStep === 'DECISION' ? 1.1 : 1,
                                 background: activeStep === 'DECISION'
                                     ? (verdict === 'PASS' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)')
-                                    : 'rgba(255,255,255,0.05)'
+                                    : 'rgba(255,255,255,0.05)',
+                                boxShadow: activeStep === 'DECISION'
+                                    ? (verdict === 'PASS' ? '0 0 40px rgba(16, 185, 129, 0.5)' : '0 0 40px rgba(239, 68, 68, 0.5)')
+                                    : 'none'
                             }}
                             className="w-24 h-24 rounded-2xl border border-white/10 backdrop-blur-xl flex items-center justify-center transition-all duration-300"
                         >
@@ -92,30 +95,35 @@ export const PipelineDemo = () => {
                                     : <ShieldAlert className="w-10 h-10 text-red-500" />
                             ) : <Shield className="w-10 h-10 text-gray-500" />}
                         </motion.div>
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 text-center w-max">
+                            <div className={twMerge("font-bold text-sm tracking-wide transition-colors", activeStep === 'DECISION' ? "text-white" : "text-gray-600")}>
+                                Decision
+                            </div>
+                            <div className="text-xs text-gray-500 font-mono mt-1">
+                                {activeStep === 'DECISION' ? (verdict === 'PASS' ? 'Approved' : 'Blocked') : 'Pending'}
+                            </div>
+                        </div>
                     </div>
 
                     {/* Glowing Particle */}
-                    <AnimatePresence>
-                        {activeStep !== 'DECISION' && (
-                            <motion.div
-                                className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full z-20 hidden lg:block"
-                                style={{
-                                    background: 'radial-gradient(circle, #fff 0%, transparent 70%)',
-                                    boxShadow: '0 0 20px 5px rgba(255,255,255,0.5)'
-                                }}
-                                initial={{ left: '5%' }}
-                                animate={{
-                                    left: activeStep === 'AGENT' ? '5%' :
-                                        activeStep === 'TIER0' ? '35%' :
-                                            activeStep === 'TIER1' ? '65%' : '90%'
-                                }}
-                                transition={{ duration: 0.6, ease: "circInOut" }}
-                            />
-                        )}
-                    </AnimatePresence>
+                    <motion.div
+                        className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full z-20 hidden lg:block"
+                        style={{
+                            background: 'radial-gradient(circle, #fff 0%, transparent 70%)',
+                            boxShadow: '0 0 20px 5px rgba(255,255,255,0.5)'
+                        }}
+                        initial={{ left: '5%', opacity: 1 }}
+                        animate={{
+                            left: activeStep === 'AGENT' ? '5%' :
+                                activeStep === 'TIER0' ? '35%' :
+                                    activeStep === 'TIER1' ? '65%' : '90%',
+                            opacity: activeStep === 'DECISION' ? 0 : 1
+                        }}
+                        transition={{ duration: 0.6, ease: "circInOut" }}
+                    />
                 </div>
 
-                <div className="flex justify-center mt-12 gap-8 text-center text-sm font-mono text-gray-400">
+                <div className="flex justify-center mt-20 gap-8 text-center text-sm font-mono text-gray-400">
                     <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-aroviq-cyan animate-pulse" />
                         Tier 0: &lt;1ms
