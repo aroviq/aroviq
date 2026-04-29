@@ -1,5 +1,7 @@
 <img width="2844" height="876" alt="Image" src="https://github.com/user-attachments/assets/f1bb9111-01ab-41b8-83ba-505c50f58f94" />
 
+[![Tests](https://github.com/arovq/aroviq/actions/workflows/test.yml/badge.svg)](https://github.com/arovq/aroviq/actions/workflows/test.yml)
+
 ### The Hybrid Runtime Firewall for AI Agents.
 
 > **"Do not just check the output. Verify the thought process."**
@@ -44,7 +46,7 @@ Aroviq is engineered for production runtime environments where latency is critic
 | Tier 1 (Local) | Llama-3-8B (Ollama) | 650 ms | ~1.5 steps/sec | $0.00 |
 | Tier 1 (Cloud) | GPT-4o (OpenAI) | 1,200 ms | ~0.8 steps/sec | ~$0.01 / 1k |
 
-> **Key Takeaway:** Aroviq's Tier 0 layer blocks known threats (such as API key leaks or prohibited tools) **8,000x faster** than a pure LLM-based evaluator.
+> **Key Takeaway:** Aroviq's Tier 0 layer blocks known threats (such as API key leaks or prohibited tools) **8,000x faster** than a pure LLM-based evaluator. *(Note: This metric represents the expected architectural speedup of using regex filtering vs. LLM inference for basic checks; it does not compare Aroviq's algorithmic complexity to competitor evaluation frameworks.)*
 
 ## Quick Start
 
@@ -53,7 +55,7 @@ Aroviq is designed for "Drop-In" protection. You do not need to refactor your en
 ### Installation
 
 ```bash
-pip install aroviq
+pip install git+https://github.com/arovq/aroviq.git
 ```
 
 ### Zero-Config Protection
@@ -108,6 +110,8 @@ Hallucination Check     APPROVED   820ms      TIER 1     PASS
 --------------------------------------------------------------------------------
 ```
 
+> **Note:** The "False Urgency: APPROVED / SAFETY_FAILURE" case shown above is a known limitation in current LLM reasoning bounds and is under active development. This will correctly report as `BLOCK` in upcoming releases.
+
 ## Comparison
 
 | Feature | Standard Evals (DeepEval/Ragas) | Aroviq (Runtime) |
@@ -120,8 +124,12 @@ Hallucination Check     APPROVED   820ms      TIER 1     PASS
 ## Roadmap
 
 *   **v0.3.0 (Current)**: Hybrid Engine (Tier 0/1), Decorators, M1 Optimization.
-*   **v0.4.0 (Q1 2026)**: ReasoningBench (Offline trace evaluation) & Multi-Agent Swarm Guards.
+*   **v0.4.0 (Upcoming)**: ReasoningBench (Offline trace evaluation) & Multi-Agent Swarm Guards.
 *   **v1.0.0**: Self-Correction Loops & Local Dashboard.
+
+## Contributing
+
+See our [Contribution Guidelines](CONTRIBUTING.md) to learn how to set up the environment, run tests, and submit PRs.
 
 ## License
 
