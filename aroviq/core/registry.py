@@ -35,6 +35,12 @@ class VerifierRegistry:
             if verifier_name not in step_list:
                 step_list.append(verifier_name)
 
+    def clear(self) -> None:
+        """Clear all registered verifiers."""
+        self._verifiers.clear()
+        for step_list in self._step_map.values():
+            step_list.clear()
+
     def get(self, name: str) -> Verifier | None:
         return self._verifiers.get(name)
 

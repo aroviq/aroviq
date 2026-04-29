@@ -31,7 +31,9 @@ class Verdict(BaseModel):
 
 
 class AgentContext(BaseModel):
-    user_goal: str
+    agent_id: str | None = None
+    session_id: str | None = None
+    user_goal: str | None = None
     current_state_snapshot: dict = Field(default_factory=dict)
     # Chat history might be needed for other verifiers, but LogicVerifier ignores it.
     chat_history: list[dict] = Field(default_factory=list)
