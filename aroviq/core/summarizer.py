@@ -65,7 +65,11 @@ class ContextSummarizer:
     def _sanitize_summary(self, summary: str) -> str:
         cleaned = summary.strip()
         if cleaned.startswith("```"):
-            cleaned = cleaned.strip("`").strip()
+            _, _, remainder = cleaned.partition("```")
+            cleaned = remainder
+            if "```" in cleaned:
+                cleaned = cleaned.rsplit("```", 1)[0]
+            cleaned = cleaned.strip()
         if len(cleaned) > self.max_summary_chars:
             cleaned = f"{cleaned[: self.max_summary_chars]}...[truncated]"
         return cleaned

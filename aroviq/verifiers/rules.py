@@ -19,7 +19,16 @@ class RuleVerifier:
 class RegexGuard(RuleVerifier):
     _MAX_PATTERN_CHARS = 2000
     _MAX_SCAN_CHARS = 10000
-    _UNSAFE_PATTERN = re.compile(r"\([^)]*[+*][^)]*\)[+*]")
+    _UNSAFE_SUBSTRINGS = (
+        "(.*)+",
+        "(.+)+",
+        "(?:.*)+",
+        "(?:.+)+",
+        "(\\w+)+",
+        "(\\s+)+",
+        "(\\d+)+",
+        "(\\S+)+",
+    )
 
     def __init__(self, patterns: list[str]):
         self.patterns = [self._compile_pattern(p) for p in patterns]
@@ -88,15 +97,18 @@ class RegexGuard(RuleVerifier):
             pattern_str = pattern.pattern
             if len(pattern_str) > self._MAX_PATTERN_CHARS:
                 raise ValueError("RegexGuard pattern exceeds maximum length.")
-            if self._UNSAFE_PATTERN.search(pattern_str):
+            if self._contains_unsafe_quantifier(pattern_str):
                 raise ValueError("RegexGuard pattern contains nested quantifiers.")
             return pattern
 
         if len(pattern) > self._MAX_PATTERN_CHARS:
             raise ValueError("RegexGuard pattern exceeds maximum length.")
-        if self._UNSAFE_PATTERN.search(pattern):
+        if self._contains_unsafe_quantifier(pattern):
             raise ValueError("RegexGuard pattern contains nested quantifiers.")
         return re.compile(pattern, re.IGNORECASE | re.DOTALL)
+
+    def _contains_unsafe_quantifier(self, pattern: str) -> bool:
+        return any(token in pattern for token in self._UNSAFE_SUBSTRINGS)
 
 class SymbolicGuard(RuleVerifier):
     def __init__(self, rule_func: Callable[[Step], bool], name: str = "SymbolicGuard"):

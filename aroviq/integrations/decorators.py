@@ -5,7 +5,7 @@ from typing import Any, Callable, Optional
 import aroviq
 from aroviq.core.exceptions import SecurityException
 from aroviq.core.models import AgentContext, Step, StepType
-from aroviq.engine.runner import AroviqEngine
+from aroviq.engine.runner import AroviqEngine, EngineConfig
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +13,7 @@ def aroviq_guard(
     func: Optional[Callable] = None,
     *,
     engine: Optional[AroviqEngine] = None,
-    engine_config: Optional[AroviqEngine] = None,
+    engine_config: AroviqEngine | EngineConfig | None = None,
     step_type: StepType | str = StepType.ACTION,
     block_on_fail: bool | None = None,
     policy: str | None = None,
@@ -27,6 +27,7 @@ def aroviq_guard(
     Args:
         func: The function to decorate.
         engine: Optional AroviqEngine instance. If None, use the default global instance.
+        engine_config: Optional EngineConfig or AroviqEngine used to build or supply the engine.
         step_type: Default to "ACTION".
         block_on_fail: Bool (Default True). If False, just log the warning but execute anyway (Monitor Mode).
         policy: Convenience alias for strict/monitor behavior.
@@ -39,8 +40,13 @@ def aroviq_guard(
     if engine and engine_config:
         raise ValueError("Provide only one of engine or engine_config.")
 
-    if engine_config:
-        engine = engine_config
+    if engine_config is not None:
+        if isinstance(engine_config, EngineConfig):
+            engine = AroviqEngine(config=engine_config)
+        elif isinstance(engine_config, AroviqEngine):
+            engine = engine_config
+        else:
+            raise TypeError("engine_config must be an EngineConfig or AroviqEngine instance.")
 
     if policy and strict is not None:
         raise ValueError("Use either policy or strict, not both.")

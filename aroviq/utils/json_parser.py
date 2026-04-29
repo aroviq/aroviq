@@ -7,6 +7,7 @@ def parse_llm_json(text: str, *, max_chars: int = 20000) -> dict[str, Any]:
     """
     Parses JSON from a string that might contain Markdown code blocks
     or loose formatting. Strictly enforces a top-level object and bounded size.
+    Python dict syntax and single-quote recovery are intentionally rejected.
     
     Args:
         text (str): The string output from an LLM.

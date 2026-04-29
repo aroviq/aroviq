@@ -149,19 +149,24 @@ class LogicVerifier:
 
     def _detect_prompt_injection(self, content: str) -> bool:
         lowered = content.casefold()
-        markers = (
-            "ignore previous",
-            "disregard previous",
+        critical_markers = (
+            "ignore previous instructions",
+            "disregard previous instructions",
             "override instructions",
             "system prompt",
             "developer message",
+        )
+        if any(marker in lowered for marker in critical_markers):
+            return True
+
+        soft_markers = (
             "you are the judge",
             "return json",
             "output json",
             "approved\": true",
             "risk_score",
         )
-        hits = sum(1 for marker in markers if marker in lowered)
+        hits = sum(1 for marker in soft_markers if marker in lowered)
         return hits >= 2
 
     def _truncate_text(self, text: str, max_chars: int) -> str:

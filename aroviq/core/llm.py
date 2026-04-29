@@ -29,6 +29,7 @@ class LiteLLMProvider(LLMProvider):
         max_retries: int = 2,
         backoff_base: float = 0.5,
         timeout: float | None = 30.0,
+        max_backoff: float = 4.0,
         **kwargs: Any,
     ):
         if litellm is None:
@@ -41,6 +42,7 @@ class LiteLLMProvider(LLMProvider):
         self.max_retries = max(0, max_retries)
         self.backoff_base = max(0.0, backoff_base)
         self.timeout = timeout
+        self.max_backoff = max(0.0, max_backoff)
 
     def generate(self, prompt: str, temperature: float = 0.0) -> str:
         if litellm is None:
@@ -72,6 +74,8 @@ class LiteLLMProvider(LLMProvider):
                 if attempt >= self.max_retries:
                     break
                 sleep_for = self.backoff_base * (2**attempt)
+                if self.max_backoff:
+                    sleep_for = min(sleep_for, self.max_backoff)
                 if sleep_for > 0:
                     time.sleep(sleep_for)
 
