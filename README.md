@@ -55,7 +55,7 @@ Aroviq is designed for "Drop-In" protection. You do not need to refactor your en
 ### Installation
 
 ```bash
-pip install git+https://github.com/arovq/aroviq.git
+pip install aroviq
 ```
 
 ### Zero-Config Protection
