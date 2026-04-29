@@ -30,8 +30,8 @@ class RegexGuard(RuleVerifier):
 
     def verify(self, step: Step, context: AgentContext) -> Verdict:
         # Check against patterns
-        content_str = self._normalize_content(step.content)
-        if len(content_str) > self._MAX_SCAN_CHARS:
+        raw_content = self._stringify_content(step.content)
+        if len(raw_content) > self._MAX_SCAN_CHARS:
             return Verdict(
                 approved=False,
                 reason="Content exceeds maximum scan size for RegexGuard.",
@@ -39,9 +39,16 @@ class RegexGuard(RuleVerifier):
                 source="tier0:regex_guard",
                 tier=0,
             )
+        content_str = self._normalize_text(raw_content)
         content_flat = " ".join(content_str.split())
+        raw_flat = " ".join(raw_content.split())
         for pattern in self.patterns:
-            if pattern.search(content_str) or pattern.search(content_flat):
+            if (
+                pattern.search(raw_content)
+                or pattern.search(raw_flat)
+                or pattern.search(content_str)
+                or pattern.search(content_flat)
+            ):
                 return Verdict(
                     approved=False,
                     reason=f"Content matched blocking pattern: {pattern.pattern}",
@@ -58,7 +65,7 @@ class RegexGuard(RuleVerifier):
             tier=0
         )
 
-    def _normalize_content(self, content: object) -> str:
+    def _stringify_content(self, content: object) -> str:
         if isinstance(content, str):
             text = content
         elif isinstance(content, (dict, list)):
@@ -69,6 +76,9 @@ class RegexGuard(RuleVerifier):
         else:
             text = str(content)
 
+        return text
+
+    def _normalize_text(self, text: str) -> str:
         normalized = unicodedata.normalize("NFKC", text)
         normalized = normalized.replace("\x00", "")
         return normalized.casefold()
