@@ -1,13 +1,12 @@
-import ast
 import json
 import re
 from typing import Any
 
 
-def parse_llm_json(text: str) -> dict[str, Any]:
+def parse_llm_json(text: str, *, max_chars: int = 20000) -> dict[str, Any]:
     """
     Parses JSON from a string that might contain Markdown code blocks
-    or python-style dict syntax. Robustly handles trailing commas.
+    or loose formatting. Strictly enforces a top-level object and bounded size.
     
     Args:
         text (str): The string output from an LLM.
@@ -21,41 +20,37 @@ def parse_llm_json(text: str) -> dict[str, Any]:
     if not text:
         raise ValueError("Empty input string.")
 
+    if len(text) > max_chars:
+        raise ValueError("LLM response exceeds maximum allowed length.")
+
     # 1. Strip Markdown code fences
     match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
     if match:
         text = match.group(1)
 
-    # 2. Extract JSON payload (find first { and last })
-    match_braces = re.search(r"(\{.*\})", text, re.DOTALL)
-    if match_braces:
-        text = match_braces.group(1)
+    candidate = text.strip()
+
+    # 2. Find the first JSON object
+    start = candidate.find("{")
+    if start == -1:
+        raise ValueError("LLM response does not contain a JSON object.")
+
+    candidate = candidate[start:]
 
     # 3. Handle trailing commas (common LLM error)
-    # This regex looks for a comma followed by closing brace/bracket and removes it.
-    # It removes ,} and ,] patterns possibly separated by whitespace.
-    text = re.sub(r",\s*([\]}])", r"\1", text)
+    candidate = re.sub(r",\s*([\]}])", r"\1", candidate)
 
-    # 4. Try strict JSON parsing
+    decoder = json.JSONDecoder()
     try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        pass
+        obj, end = decoder.raw_decode(candidate)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Could not parse JSON from text: {exc}") from exc
 
-    # 5. Try ast.literal_eval (handling python-style dicts)
-    try:
-        # Note: ast.literal_eval handles trailing commas in Python syntax naturally
-        return ast.literal_eval(text)
-    except (ValueError, SyntaxError):
-        pass
+    if not isinstance(obj, dict):
+        raise ValueError("Parsed JSON was not an object.")
 
-    # 6. Fallback: specific fix for single quotes acting as JSON
-    try:
-        # Replace single quotes with double quotes (rough heuristic)
-        # This is risky if string contains content with quotes, but useful for desperate recovery
-        fixed_text = text.replace("'", '"')
-        return json.loads(fixed_text)
-    except json.JSONDecodeError:
-        pass
+    trailing = candidate[end:].strip()
+    if trailing:
+        raise ValueError("Extra data detected after JSON object.")
 
-    raise ValueError(f"Could not parse JSON from text: {text}")
+    return obj

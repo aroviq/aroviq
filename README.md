@@ -65,22 +65,25 @@ import os
 from aroviq import guard
 
 # 1. Define strict policy (Blocks execution on failure)
+from aroviq.core.models import AgentContext
+
 @guard(policy="strict")
-def delete_user_database(db_name: str):
+def delete_user_database(db_name: str, context: AgentContext):
     """Critical function that requires strict verification."""
     print(f"Deleting {db_name}...")
     # os.remove(db_name)
 
 # 2. Define monitor policy (Logs warning, allows execution)
 @guard(policy="monitor")
-def unsafe_search(query: str):
+def unsafe_search(query: str, context: AgentContext):
     """Low-risk function where logging is sufficient."""
     print(f"Searching for: {query}")
 
 # Usage
 try:
     # If the agent tries to delete production without auth, Aroviq blocks it here.
-    delete_user_database("production_db")
+    ctx = AgentContext(user_goal="Delete DB", current_state_snapshot={}, history=[])
+    delete_user_database("production_db", ctx)
 except Exception as e:
     print(f"BLOCKED: {e}") 
 ```

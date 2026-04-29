@@ -3,7 +3,6 @@ from aroviq.engine.runner import AroviqEngine, EngineConfig
 from aroviq.core.llm import MockProvider
 from aroviq.core.models import Step, AgentContext, Verdict, StepType
 from aroviq.core.exceptions import SecurityException
-from aroviq.core.registry import registry
 from aroviq.integrations.decorators import aroviq_guard
 
 # --- 1. Define a simple Keyword Blocker Verifier ---
@@ -38,11 +37,12 @@ class KeywordBlocker:
 # --- 2. Setup the Engine ---
 def setup_aroviq():
     # Create engine with a mock LLM (needed for init, though unused by our blocker)
-    config = EngineConfig(llm_provider=MockProvider())
+    config = EngineConfig(llm_provider=MockProvider(), freeze_registry=False)
     engine = AroviqEngine(config=config)
     
     # Register our custom blocker to run on ACTION steps
-    registry.register(KeywordBlocker(), [StepType.ACTION])
+    engine.registry.register(KeywordBlocker(), [StepType.ACTION])
+    engine.registry.freeze()
     
     # Set as the global default engine for the decorator to find
     aroviq.set_default_engine(engine)
@@ -55,12 +55,12 @@ setup_aroviq()
 # --- 3. The Guarded Application Code ---
 
 @aroviq_guard
-def risky_operation(cmd: str):
+def risky_operation(cmd: str, context: AgentContext):
     print(f"   [APP] Executing command: {cmd}")
     return "Done"
 
 @aroviq_guard(block_on_fail=False)
-def monitored_risky_operation(cmd: str):
+def monitored_risky_operation(cmd: str, context: AgentContext):
     print(f"   [APP] Executing monitored command: {cmd}")
     return "Done"
 
@@ -69,14 +69,16 @@ def monitored_risky_operation(cmd: str):
 def main():
     print("\n=== Demo 1: Safe Usage ===")
     try:
-        risky_operation("ls -la")
+        context = AgentContext(user_goal="Run safe command", current_state_snapshot={}, history=[])
+        risky_operation("ls -la", context)
         print("   -> Success: Safe command allowed.")
     except SecurityException as e:
         print(f"   -> Unexpectedly blocked: {e}")
 
     print("\n=== Demo 2: Blocked Usage ===")
     try:
-        risky_operation("rm -rf /")
+        context = AgentContext(user_goal="Run dangerous command", current_state_snapshot={}, history=[])
+        risky_operation("rm -rf /", context)
         print("   -> FAIL: Dangerous command was executed!")
     except SecurityException as e:
         print(f"   -> BLOCKED as expected!")
@@ -86,7 +88,8 @@ def main():
     print("\n=== Demo 3: Monitor Mode (block_on_fail=False) ===")
     try:
         # This contains the banned phrase but should execute with a log warning
-        monitored_risky_operation("rm -rf /tmp/junk") 
+        context = AgentContext(user_goal="Monitor command", current_state_snapshot={}, history=[])
+        monitored_risky_operation("rm -rf /tmp/junk", context) 
         print("   -> Success: Command executed despite risk (Monitor Mode).")
     except SecurityException:
         print("   -> FAIL: Should not have blocked in monitor mode.")

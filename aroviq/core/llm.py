@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import time
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -20,7 +21,16 @@ class LLMProvider(ABC):
 class LiteLLMProvider(LLMProvider):
     """Vendor-agnostic provider that routes through LiteLLM."""
 
-    def __init__(self, model_name: str, api_key: str | None = None, **kwargs: Any):
+    def __init__(
+        self,
+        model_name: str,
+        api_key: str | None = None,
+        *,
+        max_retries: int = 2,
+        backoff_base: float = 0.5,
+        timeout: float | None = 30.0,
+        **kwargs: Any,
+    ):
         if litellm is None:
             raise ImportError("litellm is not installed. Please add it to your environment.")
 
@@ -28,6 +38,9 @@ class LiteLLMProvider(LLMProvider):
         # Prefer explicit key; fall back to common env vars supported by litellm dispatch.
         self.api_key = api_key or os.getenv("LITELLM_API_KEY") or os.getenv("OPENAI_API_KEY")
         self.completion_kwargs: dict[str, Any] = kwargs
+        self.max_retries = max(0, max_retries)
+        self.backoff_base = max(0.0, backoff_base)
+        self.timeout = timeout
 
     def generate(self, prompt: str, temperature: float = 0.0) -> str:
         if litellm is None:
@@ -44,10 +57,27 @@ class LiteLLMProvider(LLMProvider):
 
         params.update(self.completion_kwargs)
 
-        try:
-            response = litellm.completion(**params)
-        except Exception as exc:  # pragma: no cover - network dependent
-            raise RuntimeError(f"LiteLLM completion failed: {exc}") from exc
+        if self.timeout is not None and "timeout" not in params:
+            params["timeout"] = self.timeout
+
+        response = None
+        last_error: Exception | None = None
+        for attempt in range(self.max_retries + 1):
+            try:
+                response = litellm.completion(**params)
+                last_error = None
+                break
+            except Exception as exc:  # pragma: no cover - network dependent
+                last_error = exc
+                if attempt >= self.max_retries:
+                    break
+                sleep_for = self.backoff_base * (2**attempt)
+                if sleep_for > 0:
+                    time.sleep(sleep_for)
+
+        if response is None:
+            message = f"LiteLLM completion failed: {last_error}" if last_error else "LiteLLM completion failed."
+            raise RuntimeError(message) from last_error
 
         try:
             choice = response.choices[0]

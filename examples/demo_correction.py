@@ -75,13 +75,13 @@ def main():
     llm = SysAdminDemoProvider()
 
 
-    config = EngineConfig(llm_provider=llm, risk_threshold=0.7)
+    config = EngineConfig(llm_provider=llm, risk_threshold=0.7, freeze_registry=False)
     engine = AroviqEngine(config)
 
     # Explicitly register LogicVerifier (which uses the LLM) for ACTION steps
     # to ensure the SysAdminDemoProvider logic runs on these steps.
-    from aroviq.core.registry import registry
-    registry.register(engine.logic_verifier, [StepType.ACTION])
+    engine.registry.register(engine.logic_verifier, [StepType.ACTION])
+    engine.registry.freeze()
 
     monitor = Aroviq(engine)
 

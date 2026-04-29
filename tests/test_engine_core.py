@@ -4,14 +4,18 @@ from aroviq.core.models import AgentContext, Step, StepType, Verdict
 from aroviq.core.llm import LLMProvider
 
 class MockLLM(LLMProvider):
-    def generate(self, prompt: str) -> str:
+    def generate(self, prompt: str, temperature: float = 0.0) -> str:
         return "mock"
     async def agenerate(self, prompt: str) -> str:
         return "mock"
 
 @pytest.fixture
 def engine():
-    config = EngineConfig(llm_provider=MockLLM(), risk_threshold=0.7)
+    config = EngineConfig(
+        llm_provider=MockLLM(),
+        risk_threshold=0.7,
+        register_default_verifiers=False,
+    )
     return AroviqEngine(config)
 
 def test_engine_initialization(engine):
@@ -20,10 +24,6 @@ def test_engine_initialization(engine):
     assert engine.syntax_verifier is not None
 
 def test_verify_step_no_verifiers(engine):
-    # Overwrite registry locally for test to ensure empty
-    from aroviq.core.registry import registry
-    registry.clear()
-    
     context = AgentContext(agent_id="test_agent", session_id="1")
     step = Step(step_type=StepType.THOUGHT, content="test thought")
     verdict = engine.verify_step(step, context)
@@ -41,10 +41,6 @@ def test_engine_callbacks(engine):
     
     context = AgentContext(agent_id="test_agent", session_id="1")
     step = Step(step_type=StepType.THOUGHT, content="test thought")
-    
-    # Empty registry for determinism
-    from aroviq.core.registry import registry
-    registry.clear()
     
     engine.verify_step(step, context)
     
@@ -73,3 +69,29 @@ def test_is_risky(engine):
     
     assert not engine._is_risky(safe_verdict)
     assert engine._is_risky(risky_verdict)
+
+
+def test_engine_registry_isolation():
+    config = EngineConfig(
+        llm_provider=MockLLM(),
+        register_default_verifiers=False,
+        freeze_registry=False,
+    )
+    engine_a = AroviqEngine(config)
+    engine_b = AroviqEngine(config)
+
+    class DummyVerifier:
+        @property
+        def tier(self) -> int:
+            return 0
+
+        def name(self) -> str:
+            return "dummy"
+
+        def verify(self, step: Step, context: AgentContext) -> Verdict:
+            return Verdict(approved=True, reason="ok", risk_score=0.0)
+
+    engine_a.registry.register(DummyVerifier(), [StepType.ACTION])
+
+    assert engine_a.registry.get_verifiers_for_step(StepType.ACTION)
+    assert engine_b.registry.get_verifiers_for_step(StepType.ACTION) == []

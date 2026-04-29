@@ -30,6 +30,11 @@ class Aroviq:
         def wrapper(*args: Any, **kwargs: Any) -> Step:
             # 1. Execute the agent function to get the proposed step
             step = func(*args, **kwargs)
+            if not isinstance(step, Step):
+                raise TypeError(
+                    f"Aroviq @guard expected '{func.__name__}' to return a Step, "
+                    f"got {type(step).__name__}."
+                )
 
             # 2. Extract AgentContext to pass to the verifier
             context = self._extract_context(args, kwargs)

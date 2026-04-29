@@ -5,6 +5,11 @@ from aroviq.core.models import AgentContext, Step, StepType, Verdict
 
 
 class SyntaxVerifier:
+    _MAX_ACTION_CHARS = 10000
+    _MAX_ACTION_DEPTH = 8
+    _MAX_ACTION_ITEMS = 2000
+    _MAX_THOUGHT_CHARS = 2000
+
     @property
     def tier(self) -> int:
         return 0
@@ -21,6 +26,15 @@ class SyntaxVerifier:
         raw_content = step.content
 
         if isinstance(raw_content, str):
+            if len(raw_content) > self._MAX_ACTION_CHARS:
+                return Verdict(
+                    approved=False,
+                    reason="Action content exceeds maximum allowed size.",
+                    risk_score=1.0,
+                    suggested_correction="Reduce action payload size.",
+                    source="tier0:syntax_verifier",
+                    tier=0,
+                )
             try:
                 action_data = json.loads(raw_content)
             except json.JSONDecodeError:
@@ -54,6 +68,17 @@ class SyntaxVerifier:
                 tier=0
             )
 
+        size_check = self._check_payload(action_data)
+        if size_check is not None:
+            return Verdict(
+                approved=False,
+                reason=size_check,
+                risk_score=1.0,
+                suggested_correction="Reduce action payload size or nesting.",
+                source="tier0:syntax_verifier",
+                tier=0,
+            )
+
         schema = step.metadata.get("schema")
         if schema and isinstance(schema, dict):
             required_keys = schema.get("required", [])
@@ -84,6 +109,15 @@ class SyntaxVerifier:
                 tier=0
             )
 
+        if len(content) > self._MAX_THOUGHT_CHARS:
+            return Verdict(
+                approved=False,
+                reason="Thought content exceeds maximum allowed size.",
+                risk_score=0.9,
+                source="tier0:syntax_verifier",
+                tier=0,
+            )
+
         return Verdict(approved=True, reason="Thought syntax is valid.", risk_score=0.0, source="tier0:syntax_verifier", tier=0)
 
     def _stringify_content(self, content: Any) -> str:
@@ -91,7 +125,46 @@ class SyntaxVerifier:
             return content
         if isinstance(content, (dict, list)):
             try:
-                return json.dumps(content, ensure_ascii=True, indent=2)
+                return json.dumps(content, ensure_ascii=True, separators=(",", ":"))
             except TypeError:
                 return str(content)
         return str(content)
+
+    def _check_payload(self, payload: Any) -> str | None:
+        total_items = 0
+        total_chars = 0
+        stack: list[tuple[Any, int]] = [(payload, 1)]
+
+        while stack:
+            value, depth = stack.pop()
+            if depth > self._MAX_ACTION_DEPTH:
+                return "Action content is nested too deeply."
+
+            if isinstance(value, dict):
+                total_items += len(value)
+                if total_items > self._MAX_ACTION_ITEMS:
+                    return "Action content has too many elements."
+                for key, child in value.items():
+                    if isinstance(key, str):
+                        total_chars += len(key)
+                    else:
+                        total_chars += len(str(key))
+                    if total_chars > self._MAX_ACTION_CHARS:
+                        return "Action content exceeds maximum allowed size."
+                    stack.append((child, depth + 1))
+            elif isinstance(value, list):
+                total_items += len(value)
+                if total_items > self._MAX_ACTION_ITEMS:
+                    return "Action content has too many elements."
+                for child in value:
+                    stack.append((child, depth + 1))
+            elif isinstance(value, str):
+                total_chars += len(value)
+                if total_chars > self._MAX_ACTION_CHARS:
+                    return "Action content exceeds maximum allowed size."
+            else:
+                total_chars += len(str(value))
+                if total_chars > self._MAX_ACTION_CHARS:
+                    return "Action content exceeds maximum allowed size."
+
+        return None

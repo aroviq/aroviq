@@ -12,7 +12,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from aroviq.core.llm import LiteLLMProvider
 from aroviq.core.models import AgentContext, Step, StepType
-from aroviq.core.registry import registry
 from aroviq.engine.runner import AroviqEngine, EngineConfig
 from aroviq.verifiers.rules import RegexGuard
 
@@ -71,28 +70,26 @@ MODES = [
 
 # --- Helpers ---
 
-def reset_registry():
+def reset_registry(engine: AroviqEngine) -> None:
     """Clear all registered verifiers to cleanly switch modes."""
-    registry._verifiers.clear()
-    for key in registry._step_map:
-        registry._step_map[key] = []
+    engine.registry.clear()
 
 def setup_mode(mode: dict[str, Any], engine: AroviqEngine):
     """Configure the engine's registry for the specific benchmarking mode."""
-    reset_registry()
+    reset_registry(engine)
 
     if mode["type"] == "tier0":
         # Register RegexGuard (Tier 0)
         # We explicitly add a rule for the test case
         regex_guard = RegexGuard(patterns=["sk-[a-zA-Z0-9]+"])
-        registry.register(regex_guard, [StepType.THOUGHT, StepType.ACTION])
+        engine.registry.register(regex_guard, [StepType.THOUGHT, StepType.ACTION])
 
         # Note: We do NOT register LogicVerifier (Tier 1)
 
     elif mode["type"] == "llm":
         # Register ONLY LogicVerifier (Tier 1)
         # We purposely bypass Tier 0 to show the slowdown of using LLMs for everything
-        registry.register(engine.logic_verifier, [StepType.THOUGHT])
+        engine.registry.register(engine.logic_verifier, [StepType.THOUGHT])
 
 def run_benchmark():
     console.print("[bold blue]Aroviq v0.3.0 Benchmarking Suite[/bold blue]")
@@ -118,7 +115,13 @@ def run_benchmark():
         # Setup Engine
         llm_model = mode.get("model") or "gpt-3.5-turbo" # Default for T0 dummy
         provider = LiteLLMProvider(model_name=llm_model)
-        engine = AroviqEngine(config=EngineConfig(llm_provider=provider))
+        engine = AroviqEngine(
+            config=EngineConfig(
+                llm_provider=provider,
+                register_default_verifiers=False,
+                freeze_registry=False,
+            )
+        )
 
         setup_mode(mode, engine)
 
