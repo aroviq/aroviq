@@ -70,7 +70,7 @@ class ContextSummarizer:
         return cleaned
 
     def _hash_history(self, history_blob: str) -> str:
-        return hashlib.sha256(history_blob.encode("utf-8")).hexdigest()
+        return hashlib.blake2b(history_blob.encode("utf-8"), digest_size=16).hexdigest()
 
     def _remember(self, key: str, value: str) -> None:
         if self.cache_size <= 0:

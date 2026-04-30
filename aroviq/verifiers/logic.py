@@ -5,6 +5,7 @@ from aroviq.core.llm import LLMProvider
 from aroviq.core.models import AgentContext, Step, Verdict
 from aroviq.core.summarizer import ContextSummarizer
 
+# Require at least one soft marker with a critical cue, or two soft markers alone.
 _MIN_SOFT_HITS_WITH_CRITICAL = 1
 _MIN_SOFT_HITS_ALONE = 2
 
@@ -163,7 +164,7 @@ class LogicVerifier:
             "you are the judge",
             "return json",
             "output json",
-            'approved": true',
+            '"approved": true',
             "risk_score",
         )
         critical_hit = any(marker in lowered for marker in critical_markers)

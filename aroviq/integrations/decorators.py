@@ -14,7 +14,7 @@ def aroviq_guard(
     func: Optional[Callable] = None,
     *,
     engine: Optional[AroviqEngine] = None,
-    engine_config: AroviqEngine | EngineConfig | None = None,
+    engine_or_config: AroviqEngine | EngineConfig | None = None,
     step_type: StepType | str = StepType.ACTION,
     block_on_fail: bool | None = None,
     policy: str | None = None,
@@ -28,7 +28,7 @@ def aroviq_guard(
     Args:
         func: The function to decorate.
         engine: Optional AroviqEngine instance. If None, use the default global instance.
-        engine_config: Optional EngineConfig or AroviqEngine used to build or supply the engine.
+        engine_or_config: Optional EngineConfig or AroviqEngine used to build or supply the engine.
         step_type: Default to "ACTION".
         block_on_fail: Bool (Default True). If False, just log the warning but execute anyway (Monitor Mode).
         policy: Convenience alias for strict/monitor behavior.
@@ -36,18 +36,21 @@ def aroviq_guard(
         allow_synthetic_context: If False, an AgentContext must be supplied.
     """
     if policies:
-        raise ValueError("Policy sets are not supported by @guard; configure verifiers directly.")
+        raise ValueError(
+            "Policy sets are not supported by @guard; register custom verifiers "
+            "on the engine's registry instead."
+        )
 
-    if engine and engine_config:
-        raise ValueError("Provide only one of engine or engine_config.")
+    if engine and engine_or_config:
+        raise ValueError("Provide only one of engine or engine_or_config.")
 
-    if engine_config is not None:
-        if isinstance(engine_config, EngineConfig):
-            engine = AroviqEngine(config=engine_config)
-        elif isinstance(engine_config, AroviqEngine):
-            engine = engine_config
+    if engine_or_config is not None:
+        if isinstance(engine_or_config, EngineConfig):
+            engine = AroviqEngine(config=engine_or_config)
+        elif isinstance(engine_or_config, AroviqEngine):
+            engine = engine_or_config
         else:
-            raise TypeError("engine_config must be an EngineConfig or AroviqEngine instance.")
+            raise TypeError("engine_or_config must be an EngineConfig or AroviqEngine instance.")
 
     if policy and strict is not None:
         raise ValueError("Use either policy or strict, not both.")
@@ -81,7 +84,7 @@ def aroviq_guard(
         return functools.partial(
             aroviq_guard,
             engine=engine,
-            engine_config=engine_config,
+            engine_or_config=engine_or_config,
             step_type=step_type,
             block_on_fail=resolved_block_on_fail,
             policy=None,
