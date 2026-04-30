@@ -31,7 +31,7 @@ class RegexGuard(RuleVerifier):
     )
 
     def __init__(self, patterns: list[str]):
-        self.patterns = [self._compile_pattern(p) for p in patterns]
+        self.patterns = [self._validate_and_compile_pattern(p) for p in patterns]
 
     @property
     def name(self) -> str:
@@ -97,7 +97,7 @@ class RegexGuard(RuleVerifier):
         normalized = normalized.replace("\x00", "")
         return normalized.casefold()
 
-    def _compile_pattern(self, pattern: str | re.Pattern[str]) -> re.Pattern[str]:
+    def _validate_and_compile_pattern(self, pattern: str | re.Pattern[str]) -> re.Pattern[str]:
         if isinstance(pattern, re.Pattern):
             pattern_str = pattern.pattern
             if len(pattern_str) > self._MAX_PATTERN_CHARS:

@@ -8,6 +8,7 @@ from aroviq.core.models import AgentContext, Step, StepType
 from aroviq.engine.runner import AroviqEngine, EngineConfig
 
 logger = logging.getLogger(__name__)
+_MAX_SANITIZE_DEPTH = 3
 
 def aroviq_guard(
     func: Optional[Callable] = None,
@@ -179,7 +180,7 @@ def _sanitize_value(value: Any, *, depth: int = 0) -> Any:
         return "<AgentContext>"
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
-    if depth >= 3:
+    if depth >= _MAX_SANITIZE_DEPTH:
         return "<redacted>"
     if isinstance(value, dict):
         return {str(key): _sanitize_value(val, depth=depth + 1) for key, val in value.items()}

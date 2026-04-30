@@ -2,6 +2,7 @@ import json
 import re
 from typing import Any
 
+from aroviq.utils.text import strip_code_fence
 
 def parse_llm_json(text: str, *, max_chars: int = 20000) -> dict[str, Any]:
     """
@@ -25,9 +26,7 @@ def parse_llm_json(text: str, *, max_chars: int = 20000) -> dict[str, Any]:
         raise ValueError("LLM response exceeds maximum allowed length.")
 
     # 1. Strip Markdown code fences
-    match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
-    if match:
-        text = match.group(1)
+    text = strip_code_fence(text)
 
     candidate = text.strip()
 

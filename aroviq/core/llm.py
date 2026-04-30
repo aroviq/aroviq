@@ -10,6 +10,8 @@ try:
 except ImportError:  # pragma: no cover - handled at runtime
     litellm = None  # type: ignore
 
+_BACKOFF_MULTIPLIER = 2
+
 
 class LLMProvider(ABC):
     @abstractmethod
@@ -73,7 +75,7 @@ class LiteLLMProvider(LLMProvider):
                 last_error = exc
                 if attempt >= self.max_retries:
                     break
-                sleep_for = self.backoff_base * (2**attempt)
+                sleep_for = self.backoff_base * (_BACKOFF_MULTIPLIER**attempt)
                 if self.max_backoff:
                     sleep_for = min(sleep_for, self.max_backoff)
                 if sleep_for > 0:

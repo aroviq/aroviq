@@ -4,6 +4,7 @@ import hashlib
 from collections import OrderedDict
 
 from aroviq.core.llm import LiteLLMProvider
+from aroviq.utils.text import strip_code_fence
 
 
 class ContextSummarizer:
@@ -63,13 +64,7 @@ class ContextSummarizer:
         return fallback
 
     def _sanitize_summary(self, summary: str) -> str:
-        cleaned = summary.strip()
-        if cleaned.startswith("```"):
-            _, _, remainder = cleaned.partition("```")
-            cleaned = remainder
-            if "```" in cleaned:
-                cleaned = cleaned.rsplit("```", 1)[0]
-            cleaned = cleaned.strip()
+        cleaned = strip_code_fence(summary).strip()
         if len(cleaned) > self.max_summary_chars:
             cleaned = f"{cleaned[: self.max_summary_chars]}...[truncated]"
         return cleaned

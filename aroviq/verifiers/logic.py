@@ -5,6 +5,9 @@ from aroviq.core.llm import LLMProvider
 from aroviq.core.models import AgentContext, Step, Verdict
 from aroviq.core.summarizer import ContextSummarizer
 
+_MIN_SOFT_HITS_WITH_CRITICAL = 1
+_MIN_SOFT_HITS_ALONE = 2
+
 
 class LogicVerifier:
     def __init__(self, llm_provider: LLMProvider, summarizer: ContextSummarizer | None = None):
@@ -165,7 +168,10 @@ class LogicVerifier:
         )
         critical_hit = any(marker in lowered for marker in critical_markers)
         soft_hits = sum(1 for marker in soft_markers if marker in lowered)
-        return (critical_hit and soft_hits >= 1) or soft_hits >= 2
+        return (
+            (critical_hit and soft_hits >= _MIN_SOFT_HITS_WITH_CRITICAL)
+            or soft_hits >= _MIN_SOFT_HITS_ALONE
+        )
 
     def _truncate_text(self, text: str, max_chars: int) -> str:
         if len(text) <= max_chars:
