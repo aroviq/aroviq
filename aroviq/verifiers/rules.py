@@ -1,9 +1,9 @@
-import json
 import re
 import unicodedata
 from collections.abc import Callable
 
 from aroviq.core.models import AgentContext, Step, Verdict
+from aroviq.utils.text import compact_json
 
 
 class RuleVerifier:
@@ -84,7 +84,7 @@ class RegexGuard(RuleVerifier):
             text = content
         elif isinstance(content, (dict, list)):
             try:
-                text = json.dumps(content, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
+                text = compact_json(content, sort_keys=True)
             except TypeError:
                 text = str(content)
         else:
@@ -104,7 +104,7 @@ class RegexGuard(RuleVerifier):
                 raise ValueError("RegexGuard pattern exceeds maximum length.")
             if self._contains_unsafe_quantifier(pattern_str):
                 raise ValueError("RegexGuard pattern contains nested quantifiers.")
-            return pattern
+            return re.compile(pattern_str, pattern.flags | re.IGNORECASE | re.DOTALL)
 
         if len(pattern) > self._MAX_PATTERN_CHARS:
             raise ValueError("RegexGuard pattern exceeds maximum length.")

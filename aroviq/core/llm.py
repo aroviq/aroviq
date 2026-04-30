@@ -75,7 +75,12 @@ class LiteLLMProvider(LLMProvider):
                 last_error = exc
                 if attempt >= self.max_retries:
                     break
-                sleep_for = self.backoff_base * (_BACKOFF_MULTIPLIER**attempt)
+                multiplier = (
+                    1 << attempt
+                    if _BACKOFF_MULTIPLIER == 2
+                    else _BACKOFF_MULTIPLIER**attempt
+                )
+                sleep_for = self.backoff_base * multiplier
                 if self.max_backoff:
                     sleep_for = min(sleep_for, self.max_backoff)
                 if sleep_for > 0:

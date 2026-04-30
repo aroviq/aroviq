@@ -9,12 +9,13 @@ from aroviq.engine.runner import AroviqEngine, EngineConfig
 
 logger = logging.getLogger(__name__)
 _MAX_SANITIZE_DEPTH = 3
+_MAX_SANITIZE_STRING = 200
 
 def aroviq_guard(
     func: Optional[Callable] = None,
     *,
     engine: Optional[AroviqEngine] = None,
-    engine_or_config: AroviqEngine | EngineConfig | None = None,
+    engine_config: EngineConfig | None = None,
     step_type: StepType | str = StepType.ACTION,
     block_on_fail: bool | None = None,
     policy: str | None = None,
@@ -28,7 +29,7 @@ def aroviq_guard(
     Args:
         func: The function to decorate.
         engine: Optional AroviqEngine instance. If None, use the default global instance.
-        engine_or_config: Optional EngineConfig or AroviqEngine used to build or supply the engine.
+        engine_config: Optional EngineConfig used to build the engine.
         step_type: Default to "ACTION".
         block_on_fail: Bool (Default True). If False, just log the warning but execute anyway (Monitor Mode).
         policy: Convenience alias for strict/monitor behavior.
@@ -41,16 +42,13 @@ def aroviq_guard(
             "on the engine's registry instead."
         )
 
-    if engine and engine_or_config:
-        raise ValueError("Provide only one of engine or engine_or_config.")
+    if engine and engine_config:
+        raise ValueError("Provide only one of engine or engine_config.")
 
-    if engine_or_config is not None:
-        if isinstance(engine_or_config, EngineConfig):
-            engine = AroviqEngine(config=engine_or_config)
-        elif isinstance(engine_or_config, AroviqEngine):
-            engine = engine_or_config
-        else:
-            raise TypeError("engine_or_config must be an EngineConfig or AroviqEngine instance.")
+    if engine_config is not None:
+        if not isinstance(engine_config, EngineConfig):
+            raise TypeError("engine_config must be an EngineConfig instance.")
+        engine = AroviqEngine(config=engine_config)
 
     if policy and strict is not None:
         raise ValueError("Use either policy or strict, not both.")
@@ -84,7 +82,7 @@ def aroviq_guard(
         return functools.partial(
             aroviq_guard,
             engine=engine,
-            engine_or_config=engine_or_config,
+            engine_config=engine_config,
             step_type=step_type,
             block_on_fail=resolved_block_on_fail,
             policy=None,
@@ -183,7 +181,11 @@ def _extract_context(args: tuple[Any, ...], kwargs: dict[str, Any]) -> AgentCont
 def _sanitize_value(value: Any, *, depth: int = 0) -> Any:
     if isinstance(value, AgentContext):
         return "<AgentContext>"
-    if value is None or isinstance(value, (str, int, float, bool)):
+    if isinstance(value, str):
+        if len(value) > _MAX_SANITIZE_STRING:
+            return f"{value[:_MAX_SANITIZE_STRING]}...[truncated]"
+        return value
+    if value is None or isinstance(value, (int, float, bool)):
         return value
     if depth >= _MAX_SANITIZE_DEPTH:
         return "<redacted>"

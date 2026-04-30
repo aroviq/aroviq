@@ -38,7 +38,7 @@ class ContextSummarizer:
         if len(history_blob) > self.max_history_chars:
             return self._fallback_summary(trimmed, len(history))
 
-        cache_key = self._hash_history(history_blob)
+        cache_key = self._hash_history(trimmed)
         cached = self._cache.get(cache_key)
         if cached is not None:
             return cached
@@ -69,8 +69,13 @@ class ContextSummarizer:
             cleaned = f"{cleaned[: self.max_summary_chars]}...[truncated]"
         return cleaned
 
-    def _hash_history(self, history_blob: str) -> str:
-        return hashlib.blake2b(history_blob.encode("utf-8"), digest_size=16).hexdigest()
+    def _hash_history(self, entries: list[str]) -> str:
+        hasher = hashlib.blake2b(digest_size=16)
+        for entry in entries:
+            encoded = entry.encode("utf-8")
+            hasher.update(len(encoded).to_bytes(4, "big"))
+            hasher.update(encoded)
+        return hasher.hexdigest()
 
     def _remember(self, key: str, value: str) -> None:
         if self.cache_size <= 0:

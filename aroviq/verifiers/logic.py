@@ -1,13 +1,13 @@
-import json
 from typing import Any
 
 from aroviq.core.llm import LLMProvider
 from aroviq.core.models import AgentContext, Step, Verdict
 from aroviq.core.summarizer import ContextSummarizer
+from aroviq.utils.text import compact_json
 
 # Require at least one soft marker with a critical cue, or two soft markers alone.
-_MIN_SOFT_HITS_WITH_CRITICAL = 1
-_MIN_SOFT_HITS_ALONE = 2
+_MIN_SOFT_MARKERS_WITH_CRITICAL = 1
+_MIN_SOFT_MARKERS_ALONE = 2
 
 
 class LogicVerifier:
@@ -97,7 +97,7 @@ class LogicVerifier:
             return self._truncate_text(content, self._max_step_chars)
         if isinstance(content, (dict, list)):
             try:
-                text = json.dumps(content, ensure_ascii=True, separators=(",", ":"))
+                text = compact_json(content)
             except TypeError:
                 text = str(content)
             return self._truncate_text(text, self._max_step_chars)
@@ -111,12 +111,7 @@ class LogicVerifier:
         step_text: str,
     ) -> str:
         try:
-            snapshot_str = json.dumps(
-                context.current_state_snapshot,
-                separators=(",", ":"),
-                default=str,
-                ensure_ascii=True,
-            )
+            snapshot_str = compact_json(context.current_state_snapshot, default=str)
         except TypeError:
             snapshot_str = str(context.current_state_snapshot)
 
@@ -124,7 +119,7 @@ class LogicVerifier:
         if context.safety_metadata:
             try:
                 safety_context_parts.append(
-                    f"Authorized metadata: {json.dumps(context.safety_metadata, default=str, ensure_ascii=True)}"
+                    f"Authorized metadata: {compact_json(context.safety_metadata, default=str)}"
                 )
             except TypeError:
                 safety_context_parts.append(f"Authorized metadata: {context.safety_metadata}")
@@ -170,8 +165,8 @@ class LogicVerifier:
         critical_hit = any(marker in lowered for marker in critical_markers)
         soft_hits = sum(1 for marker in soft_markers if marker in lowered)
         return (
-            (critical_hit and soft_hits >= _MIN_SOFT_HITS_WITH_CRITICAL)
-            or soft_hits >= _MIN_SOFT_HITS_ALONE
+            (critical_hit and soft_hits >= _MIN_SOFT_MARKERS_WITH_CRITICAL)
+            or soft_hits >= _MIN_SOFT_MARKERS_ALONE
         )
 
     def _truncate_text(self, text: str, max_chars: int) -> str:

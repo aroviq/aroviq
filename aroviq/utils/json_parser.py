@@ -44,7 +44,10 @@ def parse_llm_json(text: str, *, max_chars: int = 20000) -> dict[str, Any]:
     try:
         obj, end = decoder.raw_decode(candidate)
     except json.JSONDecodeError as exc:
-        raise ValueError(f"Could not parse JSON from text: {exc}") from exc
+        snippet = candidate[:120].replace("\n", " ")
+        raise ValueError(
+            f"Could not parse JSON from text (starts with: {snippet!r}): {exc}"
+        ) from exc
 
     if not isinstance(obj, dict):
         raise ValueError("Parsed JSON was not an object.")

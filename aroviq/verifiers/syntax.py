@@ -2,6 +2,7 @@ import json
 from typing import Any
 
 from aroviq.core.models import AgentContext, Step, StepType, Verdict
+from aroviq.utils.text import compact_json
 
 
 class SyntaxVerifier:
@@ -126,7 +127,7 @@ class SyntaxVerifier:
             return content
         if isinstance(content, (dict, list)):
             try:
-                return json.dumps(content, ensure_ascii=True, separators=(",", ":"))
+                return compact_json(content)
             except TypeError:
                 return str(content)
         return str(content)
