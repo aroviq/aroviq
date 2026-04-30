@@ -51,21 +51,17 @@ class RegexGuard(RuleVerifier):
         content_str = self._normalize_text(raw_content)
         content_flat = " ".join(content_str.split())
         raw_flat = " ".join(raw_content.split())
+        variants = self._dedupe_variants([raw_content, raw_flat, content_str, content_flat])
         for pattern in self.patterns:
-            if (
-                pattern.search(raw_content)
-                or pattern.search(raw_flat)
-                or pattern.search(content_str)
-                or pattern.search(content_flat)
-            ):
-                return Verdict(
-                    approved=False,
-                    reason=f"Content matched blocking pattern: {pattern.pattern}",
-                    risk_score=1.0,
-                    source="tier0:regex_guard",
-                    tier=0
-                )
-
+            for variant in variants:
+                if pattern.search(variant):
+                    return Verdict(
+                        approved=False,
+                        reason=f"Content matched blocking pattern: {pattern.pattern}",
+                        risk_score=1.0,
+                        source="tier0:regex_guard",
+                        tier=0
+                    )
         return Verdict(
             approved=True,
             reason="No blocking patterns matched.",
@@ -73,6 +69,15 @@ class RegexGuard(RuleVerifier):
             source="tier0:regex_guard",
             tier=0
         )
+
+    def _dedupe_variants(self, variants: list[str]) -> list[str]:
+        seen: set[str] = set()
+        unique: list[str] = []
+        for variant in variants:
+            if variant not in seen:
+                seen.add(variant)
+                unique.append(variant)
+        return unique
 
     def _stringify_content(self, content: object) -> str:
         if isinstance(content, str):

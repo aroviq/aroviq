@@ -156,9 +156,6 @@ class LogicVerifier:
             "system prompt",
             "developer message",
         )
-        if any(marker in lowered for marker in critical_markers):
-            return True
-
         soft_markers = (
             "you are the judge",
             "return json",
@@ -166,8 +163,9 @@ class LogicVerifier:
             "approved\": true",
             "risk_score",
         )
-        hits = sum(1 for marker in soft_markers if marker in lowered)
-        return hits >= 2
+        critical_hit = any(marker in lowered for marker in critical_markers)
+        soft_hits = sum(1 for marker in soft_markers if marker in lowered)
+        return (critical_hit and soft_hits >= 1) or soft_hits >= 2
 
     def _truncate_text(self, text: str, max_chars: int) -> str:
         if len(text) <= max_chars:

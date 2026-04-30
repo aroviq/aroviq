@@ -108,13 +108,8 @@ def aroviq_guard(
         # binding generic *args to named parameters requires 'inspect'.
         # For now, we just pass the raw args/kwargs in the content.
         
-        sanitized_args = [
-            "<AgentContext>" if isinstance(arg, AgentContext) else arg for arg in args
-        ]
-        sanitized_kwargs = {
-            key: "<AgentContext>" if isinstance(val, AgentContext) else val
-            for key, val in kwargs.items()
-        }
+        sanitized_args = [_sanitize_value(arg) for arg in args]
+        sanitized_kwargs = {key: _sanitize_value(val) for key, val in kwargs.items()}
 
         step_content = {
             "function": func_name,
@@ -178,6 +173,19 @@ def _extract_context(args: tuple[Any, ...], kwargs: dict[str, Any]) -> AgentCont
         if isinstance(value, AgentContext):
             return value
     return None
+
+def _sanitize_value(value: Any, *, depth: int = 0) -> Any:
+    if isinstance(value, AgentContext):
+        return "<AgentContext>"
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if depth >= 3:
+        return "<redacted>"
+    if isinstance(value, dict):
+        return {str(key): _sanitize_value(val, depth=depth + 1) for key, val in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_sanitize_value(item, depth=depth + 1) for item in value]
+    return f"<{type(value).__name__}>"
 
 # Alias
 guard = aroviq_guard

@@ -68,7 +68,7 @@ class SyntaxVerifier:
                 tier=0
             )
 
-        size_check = self._check_payload(action_data)
+        size_check = self._check_payload(action_data, check_chars=not isinstance(raw_content, str))
         if size_check is not None:
             return Verdict(
                 approved=False,
@@ -130,7 +130,7 @@ class SyntaxVerifier:
                 return str(content)
         return str(content)
 
-    def _check_payload(self, payload: Any) -> str | None:
+    def _check_payload(self, payload: Any, *, check_chars: bool = True) -> str | None:
         total_items = 0
         total_chars = 0
         stack: list[tuple[Any, int]] = [(payload, 1)]
@@ -149,7 +149,7 @@ class SyntaxVerifier:
                         total_chars += len(key)
                     else:
                         total_chars += len(str(key))
-                    if total_chars > self._MAX_ACTION_CHARS:
+                    if check_chars and total_chars > self._MAX_ACTION_CHARS:
                         return "Action content exceeds maximum allowed size."
                     stack.append((child, depth + 1))
             elif isinstance(value, list):
@@ -160,11 +160,11 @@ class SyntaxVerifier:
                     stack.append((child, depth + 1))
             elif isinstance(value, str):
                 total_chars += len(value)
-                if total_chars > self._MAX_ACTION_CHARS:
+                if check_chars and total_chars > self._MAX_ACTION_CHARS:
                     return "Action content exceeds maximum allowed size."
             else:
                 total_chars += len(str(value))
-                if total_chars > self._MAX_ACTION_CHARS:
+                if check_chars and total_chars > self._MAX_ACTION_CHARS:
                     return "Action content exceeds maximum allowed size."
 
         return None
