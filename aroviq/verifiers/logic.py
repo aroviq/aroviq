@@ -163,7 +163,7 @@ class LogicVerifier:
             "you are the judge",
             "return json",
             "output json",
-            "approved\": true",
+            'approved": true',
             "risk_score",
         )
         critical_hit = any(marker in lowered for marker in critical_markers)

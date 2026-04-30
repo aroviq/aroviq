@@ -121,6 +121,7 @@ class SyntaxVerifier:
         return Verdict(approved=True, reason="Thought syntax is valid.", risk_score=0.0, source="tier0:syntax_verifier", tier=0)
 
     def _stringify_content(self, content: Any) -> str:
+        """Serialize content using compact JSON to keep payload size bounded."""
         if isinstance(content, str):
             return content
         if isinstance(content, (dict, list)):

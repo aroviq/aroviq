@@ -75,6 +75,8 @@ def aroviq_guard(
     if not isinstance(resolved_block_on_fail, bool):
         raise ValueError("block_on_fail must be a boolean value.")
 
+    resolved_allow_synthetic_context = allow_synthetic_context
+
     if func is None:
         return functools.partial(
             aroviq_guard,
@@ -85,7 +87,7 @@ def aroviq_guard(
             policy=None,
             strict=None,
             policies=None,
-            allow_synthetic_context=allow_synthetic_context,
+            allow_synthetic_context=resolved_allow_synthetic_context,
         )
 
     @functools.wraps(func)
@@ -134,7 +136,7 @@ def aroviq_guard(
 
         context = _extract_context(args, kwargs)
         if context is None:
-            if not allow_synthetic_context:
+            if not resolved_allow_synthetic_context:
                 raise ValueError(
                     "Aroviq @guard requires an AgentContext argument. "
                     "Pass allow_synthetic_context=True to permit a fallback context."
