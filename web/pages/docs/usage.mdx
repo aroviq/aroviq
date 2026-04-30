@@ -6,17 +6,19 @@ The primary way to use Aroviq is via the `@guard` decorator.
 
 ```python
 from aroviq import guard
+from aroviq.core.models import AgentContext
 
 @guard
-def agent_action(command: str):
+def agent_action(command: str, context: AgentContext):
     print(f"Executing: {command}")
 
 # Safe call
-agent_action("read_file('report.txt')")
+context = AgentContext(user_goal="Read report", current_state_snapshot={}, history=[])
+agent_action("read_file('report.txt')", context)
 
 # Unsafe call (Blocked)
 try:
-    agent_action("os.system('rm -rf /')")
+    agent_action("os.system('rm -rf /')", context)
 except SecurityException as e:
     print(f"Blocked: {e}")
 ```
@@ -26,19 +28,18 @@ except SecurityException as e:
 For more control, or to integrate deeper into your agent loop (e.g., inside LangChain or AutoGen), use validation manually.
 
 ```python
-from aroviq import AroviqEngine, Step
+from aroviq.core.llm import MockProvider
+from aroviq.core.models import AgentContext, Step, StepType
+from aroviq.engine.runner import AroviqEngine, EngineConfig
 
-engine = AroviqEngine()
+engine = AroviqEngine(EngineConfig(llm_provider=MockProvider()))
 
-step = Step(
-    action="call_tool",
-    tool_name="bash",
-    args={"command": "cat /etc/passwd"}
-)
+step = Step(step_type=StepType.ACTION, content={"command": "cat /etc/passwd"})
+context = AgentContext(user_goal="Inspect file", current_state_snapshot={}, history=[])
 
-verdict = engine.verify_step(step)
+verdict = engine.verify_step(step, context)
 
-if not verdict.passed:
+if not verdict.approved:
     print(f"Action blocked! Reason: {verdict.reason}")
 else:
     execute_tool(step)

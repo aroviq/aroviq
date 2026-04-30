@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from aroviq.core.llm import LLMProvider
 from aroviq.core.models import AgentContext, Step, StepType, Verdict
-from aroviq.core.registry import registry
+from aroviq.core.registry import VerifierRegistry
 from aroviq.verifiers.grounding import GroundingVerifier
 from aroviq.verifiers.logic import LogicVerifier
 from aroviq.verifiers.safety import SafetyVerifier
@@ -20,6 +20,9 @@ class EngineConfig(BaseModel):
 
     llm_provider: LLMProvider = Field(description="The LLM provider instance (LLMProvider)")
     risk_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
+    registry: VerifierRegistry | None = Field(default=None, description="Optional verifier registry template.")
+    register_default_verifiers: bool = Field(default=True)
+    freeze_registry: bool = Field(default=True)
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -32,16 +35,23 @@ class AroviqEngine:
 
         self.llm_provider = config.llm_provider
 
+        base_registry = config.registry.clone() if config.registry else VerifierRegistry()
+        self.registry = base_registry
+
         # Initialize default verifiers and register them for dynamic routing.
         self.logic_verifier = LogicVerifier(llm_provider=self.llm_provider)
         self.syntax_verifier = SyntaxVerifier()
         self.safety_verifier = SafetyVerifier()
         self.grounding_verifier = GroundingVerifier()
 
-        registry.register(self.logic_verifier, [StepType.THOUGHT])
-        registry.register(self.syntax_verifier, [StepType.ACTION, StepType.THOUGHT])
-        registry.register(self.safety_verifier, [StepType.ACTION])
-        registry.register(self.grounding_verifier, [StepType.OBSERVATION])
+        if config.register_default_verifiers:
+            self.registry.register(self.logic_verifier, [StepType.THOUGHT])
+            self.registry.register(self.syntax_verifier, [StepType.ACTION, StepType.THOUGHT])
+            self.registry.register(self.safety_verifier, [StepType.ACTION])
+            self.registry.register(self.grounding_verifier, [StepType.OBSERVATION])
+
+        if config.freeze_registry:
+            self.registry.freeze()
 
     def subscribe_step(self, callback: Callable[[Step], None]) -> None:
         """Register a callback for when a step is received."""
@@ -73,7 +83,7 @@ class AroviqEngine:
 
         self._notify_step(step)
 
-        verifiers = registry.get_verifiers_for_step(step.step_type)
+        verifiers = self.registry.get_verifiers_for_step(step.step_type)
         if not verifiers:
             verdict = Verdict(
                 approved=True,

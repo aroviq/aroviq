@@ -37,20 +37,21 @@ class ShellGuardLLM(LLMProvider):
 
 # Initialize Engine
 llm = ShellGuardLLM()
-config = EngineConfig(llm_provider=llm, risk_threshold=0.5)
+config = EngineConfig(llm_provider=llm, risk_threshold=0.5, freeze_registry=False)
 security_engine = AroviqEngine(config=config)
 
 # IMPORTANT: By default, AroviqEngine only runs LogicVerifier (LLM) on THOUGHT steps.
 # For this demo, we want to run the LLM-based check on ACTION steps too.
 from aroviq.core.models import StepType
-from aroviq.core.registry import registry
+from aroviq.core.models import AgentContext
 
-registry.register(security_engine.logic_verifier, [StepType.ACTION])
+security_engine.registry.register(security_engine.logic_verifier, [StepType.ACTION])
+security_engine.registry.freeze()
 
 # --- The Protected Tool ---
 
-@guard(engine_config=security_engine)
-def run_shell_command(command: str, sudo: bool = False) -> str:
+@guard(engine=security_engine)
+def run_shell_command(command: str, sudo: bool = False, context: AgentContext | None = None) -> str:
     """
     Executes a shell command. 
     This function is intercepted by Aroviq BEFORE it runs.
@@ -67,7 +68,8 @@ def main() -> None:
     # 1. Safe Command
     print("1. Attempting Safe Command: 'ls -la'")
     try:
-        result = run_shell_command("ls -la")
+        context = AgentContext(user_goal="List directory", current_state_snapshot={}, history=[])
+        result = run_shell_command("ls -la", context=context)
         print(f"   Result: {result}\n")
     except SecurityException as e:
         print(f"   BLOCKED: {e}\n")
@@ -75,7 +77,8 @@ def main() -> None:
     # 2. Dangerous Command
     print("2. Attempting Dangerous Command: 'rm -rf /'")
     try:
-        run_shell_command("rm -rf /", sudo=True)
+        context = AgentContext(user_goal="Delete", current_state_snapshot={}, history=[])
+        run_shell_command("rm -rf /", sudo=True, context=context)
         print("   Result: Success (This should not happen!)\n")
     except SecurityException as e:
         print("   🛑 BLOCKED BY AROVIQ")

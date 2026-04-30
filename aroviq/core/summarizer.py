@@ -1,19 +1,48 @@
 from __future__ import annotations
 
+import hashlib
+from collections import OrderedDict
+
 from aroviq.core.llm import LiteLLMProvider
+from aroviq.utils.text import strip_code_fence
 
 
 class ContextSummarizer:
     """Summarize agent history into a compact safety context."""
 
-    def __init__(self, model_name: str = "gpt-3.5-turbo", api_key: str | None = None, provider: LiteLLMProvider | None = None):
+    def __init__(
+        self,
+        model_name: str = "gpt-3.5-turbo",
+        api_key: str | None = None,
+        provider: LiteLLMProvider | None = None,
+        *,
+        max_history_entries: int = 50,
+        max_history_chars: int = 8000,
+        max_summary_chars: int = 2000,
+        cache_size: int = 128,
+    ):
         self.provider = provider or LiteLLMProvider(model_name=model_name, api_key=api_key)
+        self.max_history_entries = max_history_entries
+        self.max_history_chars = max_history_chars
+        self.max_summary_chars = max_summary_chars
+        self.cache_size = cache_size
+        self._cache: OrderedDict[str, str] = OrderedDict()
 
     def summarize(self, history: list[str]) -> str:
         if not history:
             return "No prior steps or permissions recorded."
 
-        history_blob = "\n---\n".join(history)
+        trimmed = history[-self.max_history_entries :] if self.max_history_entries else history
+        history_blob = "\n---\n".join(trimmed)
+
+        if len(history_blob) > self.max_history_chars:
+            return self._fallback_summary(trimmed, len(history))
+
+        cache_key = self._hash_history(trimmed)
+        cached = self._cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         prompt = (
             "Summarize the user's authorizations and the agent's progress. Focus ONLY on permissions given and actions taken. "
             "Ignore conversational filler.\n\n"
@@ -26,5 +55,42 @@ class ContextSummarizer:
         except Exception as exc:  # pragma: no cover - network/API dependent
             return f"Summary unavailable due to summarizer error: {exc}"
 
-        cleaned = summary.strip()
-        return cleaned or "Summary unavailable from summarizer."
+        cleaned = self._sanitize_summary(summary)
+        if cleaned:
+            self._remember(cache_key, cleaned)
+            return cleaned
+        fallback = "Summary unavailable from summarizer."
+        self._remember(cache_key, fallback)
+        return fallback
+
+    def _sanitize_summary(self, summary: str) -> str:
+        cleaned = strip_code_fence(summary).strip()
+        if len(cleaned) > self.max_summary_chars:
+            cleaned = f"{cleaned[: self.max_summary_chars]}...[truncated]"
+        return cleaned
+
+    def _hash_history(self, entries: list[str]) -> str:
+        hasher = hashlib.blake2b(digest_size=16)
+        for entry in entries:
+            encoded = entry.encode("utf-8")
+            hasher.update(len(encoded).to_bytes(4, "big"))
+            hasher.update(encoded)
+        return hasher.hexdigest()
+
+    def _remember(self, key: str, value: str) -> None:
+        if self.cache_size <= 0:
+            return
+        self._cache[key] = value
+        self._cache.move_to_end(key)
+        while len(self._cache) > self.cache_size:
+            self._cache.popitem(last=False)
+
+    def _fallback_summary(self, trimmed_history: list[str], total_entries: int) -> str:
+        if not trimmed_history:
+            return "No prior steps or permissions recorded."
+        last_entry = trimmed_history[-1]
+        snippet = last_entry[:200]
+        return (
+            f"{total_entries} prior steps recorded. "
+            f"Last entry: {snippet}{'...[truncated]' if len(last_entry) > 200 else ''}"
+        )

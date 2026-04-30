@@ -6,10 +6,14 @@ The `@guard` decorator is the main entry point for function-level protection.
 
 ```python
 def guard(
-    func=None, 
-    *, 
-    policies: List[str] = None, 
-    strict: bool = True
+    func=None,
+    *,
+    engine=None,
+    step_type="ACTION",
+    block_on_fail=True,
+    policy: str | None = None,
+    strict: bool | None = None,
+    allow_synthetic_context: bool = False
 )
 ```
 
@@ -17,24 +21,34 @@ def guard(
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `policies` | `List[str]` | `None` | A list of policy names to enforce (e.g., `["no_pii", "safe_python"]`). If None, uses default safe-defaults. |
-| `strict` | `bool` | `True` | If `True`, raises `SecurityException` on block. If `False`, returns a `Verdict` object instead of executing the function. |
+| `engine` | `AroviqEngine` | `None` | Optional engine instance. Falls back to the default engine. |
+| `step_type` | `str` | `"ACTION"` | Step type to assign to the guarded function. |
+| `block_on_fail` | `bool` | `True` | If `True`, raises `SecurityException` on block. If `False`, logs and allows execution. |
+| `policy` | `str` | `None` | Convenience alias (`"strict"` or `"monitor"`) for `block_on_fail`. |
+| `strict` | `bool` | `None` | Alternative alias for `block_on_fail`. |
+| `allow_synthetic_context` | `bool` | `False` | If `False`, the guarded function must receive an `AgentContext` argument. |
+
+> **Note:** For best safety guarantees, pass a real `AgentContext` into guarded functions. You can opt into a synthetic fallback context by setting `allow_synthetic_context=True`.
 
 ## Examples
 
-### Custom Policies
+### Strict Blocking (with AgentContext)
 
 ```python
-@guard(policies=["finance_safety", "no_competitor_mention"])
-def draft_email(subject, body):
+from aroviq.core.models import AgentContext
+
+@guard(policy="strict")
+def draft_email(subject, body, context: AgentContext):
     ...
 ```
 
 ### Non-Blocking Mode (Audit)
 
 ```python
+from aroviq.core.models import AgentContext
+
 @guard(strict=False)
-def search_web(query):
+def search_web(query, context: AgentContext):
     # This function will always run, but Aroviq will log the verdict
     ...
 ```

@@ -20,14 +20,16 @@ The easiest way to use Aroviq is the `@guard` decorator. It automatically interc
 
 ```python
 from aroviq import guard
+from aroviq.core.models import AgentContext
 
-@guard(policies=["no_sql_injection", "no_pii_leak"])
-def run_query(user_input: str):
+@guard(policy="strict")
+def run_query(user_input: str, context: AgentContext):
     # This code will NOT run if Aroviq detects a threat
     return db.execute(user_input)
 
 # Usage
-run_query("DROP TABLE users") 
+context = AgentContext(user_goal="Run query", current_state_snapshot={}, history=[])
+run_query("DROP TABLE users", context) 
 # ^ Raises SecurityException: Blocked by Tier 0 (SQL Injection Pattern)
 ```
 
