@@ -60,6 +60,7 @@ pip install aroviq
 <div align="center">
   <img src="./assets/AroviqInstallationguide.gif" alt="Aroviq Installation Guide" width="800">
 </div>
+
 ### Zero-Config Protection
 
 ```python
