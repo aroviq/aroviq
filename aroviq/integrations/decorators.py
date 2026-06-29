@@ -22,9 +22,16 @@ def aroviq_guard(
     strict: bool | None = None,
     policies: list[str] | None = None,
     allow_synthetic_context: bool = False,
+    redact_details: bool = False,
 ) -> Callable:
     """
-    Decorator to intercept function calls and verify them with AroviqEngine.
+    Decorator to intercept function calls **before** execution and verify them
+    with AroviqEngine.  This decorator is *pre-execution*: verification runs
+    first; the wrapped function is only called if the step is approved.
+
+    This contrasts with :meth:`Aroviq.guard` (on the ``Aroviq`` class), which
+    is *post-execution* and verifies the ``Step`` object the function returns
+    after it has already run.
 
     Args:
         func: The function to decorate.
@@ -35,6 +42,9 @@ def aroviq_guard(
         policy: Convenience alias for strict/monitor behavior.
         strict: Alias for block_on_fail.
         allow_synthetic_context: If False, an AgentContext must be supplied.
+        redact_details: If True, SecurityException will not include verdict detail
+            (reason, risk_score, correction).  Use for externally-facing agents
+            to prevent oracle-style feedback to adversarial callers.
     """
     if policies:
         raise ValueError(
@@ -89,6 +99,7 @@ def aroviq_guard(
             strict=None,
             policies=None,
             allow_synthetic_context=resolved_allow_synthetic_context,
+            redact_details=redact_details,
         )
 
     @functools.wraps(func)
@@ -158,7 +169,8 @@ def aroviq_guard(
             if resolved_block_on_fail:
                 raise SecurityException(
                     f"Action blocked by Aroviq: {verdict.reason}",
-                    verdict=verdict
+                    verdict=verdict,
+                    redact_details=redact_details,
                 )
             else:
                 logger.warning(

@@ -14,6 +14,13 @@ from aroviq.verifiers.syntax import SyntaxVerifier
 
 logger = logging.getLogger(__name__)
 
+# Hard ceiling on raw step content size.  Any payload larger than this is
+# rejected immediately, before any verifier, regex engine, or JSON parser
+# processes it.  This prevents CPU/memory exhaustion from pathological inputs
+# (e.g. a 50 MB base64 blob smuggled through aroviq_guard).  64 KB is generous
+# for typical agent step content; raise it only with a measured justification.
+_MAX_STEP_CONTENT_BYTES: int = 64 * 1024  # 64 KB
+
 
 class EngineConfig(BaseModel):
     """Configuration for the Aroviq Engine."""
@@ -82,6 +89,39 @@ class AroviqEngine:
         """Run all registered verifiers for a step type with fail-fast semantics."""
 
         self._notify_step(step)
+
+        # --- Global size guard -------------------------------------------
+        # Estimate the serialised size of step.content without paying the full
+        # JSON serialisation cost.  For strings we check len directly; for
+        # structured types we fall back to a rough repr estimate.
+        raw = step.content
+        if isinstance(raw, str):
+            estimated_bytes = len(raw.encode("utf-8", errors="replace"))
+        elif isinstance(raw, (dict, list)):
+            import json as _json
+            try:
+                estimated_bytes = len(_json.dumps(raw, ensure_ascii=False).encode("utf-8"))
+            except (TypeError, ValueError):
+                estimated_bytes = len(str(raw).encode("utf-8", errors="replace"))
+        else:
+            estimated_bytes = len(str(raw).encode("utf-8", errors="replace"))
+
+        if estimated_bytes > _MAX_STEP_CONTENT_BYTES:
+            oversized_verdict = Verdict(
+                approved=False,
+                reason=(
+                    f"Step content size ({estimated_bytes:,} bytes) exceeds the "
+                    f"engine maximum of {_MAX_STEP_CONTENT_BYTES:,} bytes. "
+                    "Reduce the payload before submitting to Aroviq."
+                ),
+                risk_score=1.0,
+                source="engine:size_guard",
+                latency_ms=0.0,
+                tier=0,
+            )
+            self._notify_verdict(oversized_verdict)
+            return oversized_verdict
+        # -----------------------------------------------------------------
 
         verifiers = self.registry.get_verifiers_for_step(step.step_type)
         if not verifiers:

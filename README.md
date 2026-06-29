@@ -14,7 +14,7 @@ Most AI evaluation tools (such as DeepEval or Ragas) are **Outcome-Based**. They
 
 ## The Hybrid Architecture
 
-Aroviq v0.3.0 implements a **Waterfall Pipeline** to address the latency challenges inherent in LLM-based verification.
+Aroviq v0.3.1 implements a **Waterfall Pipeline** to address the latency challenges inherent in LLM-based verification.
 
 ```mermaid
 graph LR
@@ -25,8 +25,10 @@ graph LR
     D -- Passed --> E[Execute Tool]
 ```
 
-*   **Tier 0 (The Bouncer)**: Instant Regex and Symbolic checks (<0.15ms latency). This layer blocks PII leaks, banned commands, and syntax errors with zero cost.
-*   **Tier 1 (The Detective)**: Deep LLM-based semantic verification. This layer analyzes the "Thought" for sycophancy, logical fallacies, and unsafe intent.
+*   **Tier 0 (The Bouncer)**: Fast deterministic checks with three sub-verifiers:
+    - `RegexGuard` / `SymbolicGuard` — instant pattern and rule matching (**<0.15ms**). Blocks PII leaks and banned commands with zero network cost.
+    - `SyntaxVerifier` — structural validation (JSON schema checks, size limits, depth limits). Slightly higher cost due to parsing, but still sub-millisecond for typical payloads.
+*   **Tier 1 (The Detective)**: Deep LLM-based semantic verification. This layer analyses the "Thought" for sycophancy, logical fallacies, and unsafe intent. Also includes an offline `SafetyVerifier` (threat-pattern matching) and `GroundingVerifier` (structural consistency checks on tool outputs) that run as a fast pre-filter before any LLM call.
 
 ## Performance Benchmarks
 
@@ -42,15 +44,26 @@ Aroviq is engineered for production runtime environments where latency is critic
 
 | Verification Tier | Method | Avg Latency | Throughput | Cost |
 | :--- | :--- | :--- | :--- | :--- |
-| **Tier 0 (Aroviq)** | **Regex / Symbolic Rules** | **0.15 ms** | **~6,000 steps/sec** | **$0.00** |
+| **Tier 0 — RegexGuard / SymbolicGuard** | **Pattern / Rule matching** | **0.15 ms** | **~6,000 steps/sec** | **$0.00** |
+| Tier 0 — SyntaxVerifier | JSON schema + size checks | ~0.5–2 ms | ~500–2000 steps/sec | $0.00 |
 | Tier 1 (Local) | Llama-3-8B (Ollama) | 650 ms | ~1.5 steps/sec | $0.00 |
 | Tier 1 (Cloud) | GPT-4o (OpenAI) | 1,200 ms | ~0.8 steps/sec | ~$0.01 / 1k |
 
-> **Key Takeaway:** Aroviq's Tier 0 layer blocks known threats (such as API key leaks or prohibited tools) **8,000x faster** than a pure LLM-based evaluator. *(Note: This metric represents the expected architectural speedup of using regex filtering vs. LLM inference for basic checks; it does not compare Aroviq's algorithmic complexity to competitor evaluation frameworks.)*
+> **Key Takeaway:** Aroviq's Tier 0 regex/symbolic layer blocks known threats (such as API key leaks or prohibited tools) **8,000x faster** than a pure LLM-based evaluator. *(Note: The 0.15ms figure applies specifically to `RegexGuard` and `SymbolicGuard` and was measured on an M1 MacBook Air. The SyntaxVerifier latency range is an estimate — measure in your own environment before using it as a production SLA.)*
 
 ## Quick Start
 
 Aroviq is designed for "Drop-In" protection. You do not need to refactor your entire agent architecture; simply wrap critical functions with the `@guard` decorator.
+
+> **Two decorator modes — choose carefully:**
+>
+> | Decorator | Import path | Execution model | Use when… |
+> |---|---|---|---|
+> | `@aroviq.guard` | `from aroviq import guard` | **Pre-execution** — verifies *before* the function runs; blocks the call if rejected | You want to *prevent* a side-effecting function from executing |
+> | `@aroviq_instance.post_exec_guard` | `Aroviq(engine).post_exec_guard` | **Post-execution** — function runs first, then the returned `Step` is verified | Your function returns a `Step` describing a decision for a downstream executor |
+>
+> `Aroviq.guard` is a deprecated alias for `post_exec_guard` and will be removed in v0.4.0.
+> Using the wrong one defeats the purpose of runtime prevention.
 
 ### Installation
 
@@ -102,7 +115,7 @@ from aroviq import scan
 scan(target_model="ollama/llama3", judge_model="gpt-4o")
 ```
 
-### Sample Output (v0.3.0)
+### Sample Output (v0.3.1)
 
 ```text
 Aroviq Scan Report: ollama/llama3
@@ -129,7 +142,7 @@ Hallucination Check     APPROVED   820ms      TIER 1     PASS
 
 ## Roadmap
 
-*   **v0.3.0 (Current)**: Hybrid Engine (Tier 0/1), Decorators, M1 Optimization.
+*   **v0.3.1 (Current)**: Real `SafetyVerifier` + `GroundingVerifier`; shared injection constants; `SecurityException.redact_details`; global 64 KB size guard; `Aroviq.post_exec_guard` rename.
 *   **v0.4.0 (Upcoming)**: ReasoningBench (Offline trace evaluation) & Multi-Agent Swarm Guards.
 *   **v1.0.0**: Self-Correction Loops & Local Dashboard.
 

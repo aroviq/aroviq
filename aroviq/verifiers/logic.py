@@ -4,10 +4,12 @@ from aroviq.core.llm import LLMProvider
 from aroviq.core.models import AgentContext, Step, Verdict
 from aroviq.core.summarizer import ContextSummarizer
 from aroviq.utils.text import compact_json
-
-# Require at least one soft marker with a critical cue, or two soft markers alone.
-_MIN_SOFT_MARKERS_WITH_CRITICAL = 1
-_MIN_SOFT_MARKERS_ALONE = 2
+from aroviq.verifiers._injection_constants import (
+    CRITICAL_INJECTION_MARKERS,
+    MIN_SOFT_ALONE,
+    MIN_SOFT_WITH_CRITICAL,
+    SOFT_INJECTION_MARKERS,
+)
 
 
 class LogicVerifier:
@@ -147,26 +149,31 @@ class LogicVerifier:
         return prompt
 
     def _detect_prompt_injection(self, content: str) -> bool:
-        lowered = content.casefold()
-        critical_markers = (
-            "ignore previous instructions",
-            "disregard previous instructions",
-            "override instructions",
-            "system prompt",
-            "developer message",
-        )
-        soft_markers = (
-            "you are the judge",
-            "return json",
-            "output json",
-            '"approved": true',
-            "risk_score",
-        )
-        critical_hit = any(marker in lowered for marker in critical_markers)
-        soft_hits = sum(1 for marker in soft_markers if marker in lowered)
+        """
+        Pre-screen content for prompt injection patterns before it reaches the LLM.
+
+        Design note
+        -----------
+        The LLM prompt wraps untrusted content in ``<UNTRUSTED>`` XML tags and
+        instructs the model to treat it as data.  However, XML-style sandboxing
+        is a *soft* mitigation — sufficiently sophisticated injections can still
+        cause model confusion.  This method provides a *hard* keyword gate that
+        blocks the most common injection patterns before they reach the LLM at
+        all, removing a class of attacks without relying on model compliance.
+
+        This heuristic will produce false positives for legitimate content that
+        discusses AI systems or JSON formats.  Tune the thresholds and marker
+        sets for your deployment's content profile.
+        """
+        # NFKC normalise to defeat unicode lookalike obfuscation
+        import unicodedata
+        lowered = unicodedata.normalize("NFKC", content).casefold()
+
+        critical_hit = any(marker in lowered for marker in CRITICAL_INJECTION_MARKERS)
+        soft_hits = sum(1 for marker in SOFT_INJECTION_MARKERS if marker in lowered)
         return (
-            (critical_hit and soft_hits >= _MIN_SOFT_MARKERS_WITH_CRITICAL)
-            or soft_hits >= _MIN_SOFT_MARKERS_ALONE
+            (critical_hit and soft_hits >= MIN_SOFT_WITH_CRITICAL)
+            or soft_hits >= MIN_SOFT_ALONE
         )
 
     def _truncate_text(self, text: str, max_chars: int) -> str:
