@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from collections.abc import Callable
+from contextlib import asynccontextmanager
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -326,3 +328,166 @@ class AroviqEngine:
 
         # Default: no memory context available — run standard stateless path.
         return self.verify_step(step, context)
+
+    # ------------------------------------------------------------------
+    # Batch execution with automatic post-batch improve() trigger
+    # ------------------------------------------------------------------
+
+    async def verify_batch_execution(
+        self,
+        steps: list[Step],
+        context: AgentContext,
+        *,
+        memory_limit: int = 3,
+        auto_improve: bool = True,
+        improve_dataset: str | None = None,
+    ) -> list[Verdict]:
+        """
+        Run a sequence of agent steps through the memory-aware pipeline,
+        then fire ``improve_memory_pool()`` as a background task once the
+        batch finishes — so the next batch benefits from consolidated
+        structural knowledge without blocking the caller.
+
+        Parameters
+        ----------
+        steps:
+            Ordered list of :class:`~aroviq.core.models.Step` objects to
+            evaluate.
+        context:
+            Shared :class:`~aroviq.core.models.AgentContext` for this batch.
+        memory_limit:
+            Maximum number of historical verdicts to inject per step.
+            Defaults to 3.
+        auto_improve:
+            When ``True`` (default), schedule ``improve_memory_pool()`` as
+            an ``asyncio`` background task after the batch completes.
+            Set to ``False`` in tests or when you want to trigger
+            consolidation manually.
+        improve_dataset:
+            Dataset name forwarded to ``improve_memory_pool(dataset_name=...)``.
+            If ``None``, the active ``MemoryConfig.dataset_name`` is used.
+
+        Returns
+        -------
+        list[Verdict]
+            One :class:`~aroviq.core.models.Verdict` per input step, in
+            the same order as ``steps``.
+
+        Example
+        -------
+        .. code-block:: python
+
+            from aroviq.memory import init_memory
+            from aroviq.core.models import Step, StepType, AgentContext
+
+            await init_memory()
+            verdicts = await engine.verify_batch_execution(
+                steps=[Step(step_type=StepType.THOUGHT, content="...")],
+                context=AgentContext(user_goal="..."),
+            )
+        """
+        results: list[Verdict] = []
+        try:
+            for step in steps:
+                verdict = await self.verify_step_with_memory(
+                    step, context, memory_limit=memory_limit
+                )
+                results.append(verdict)
+            return results
+        finally:
+            if auto_improve:
+                logger.info(
+                    "verify_batch_execution: batch of %d step(s) complete — "
+                    "scheduling async improve_memory_pool().",
+                    len(steps),
+                )
+                try:
+                    from aroviq.memory.operations import improve_memory_pool  # noqa: PLC0415
+
+                    task = asyncio.ensure_future(
+                        improve_memory_pool(dataset_name=improve_dataset)
+                    )
+
+                    def _log_improve_result(t: asyncio.Task) -> None:  # type: ignore[type-arg]
+                        if t.cancelled():
+                            logger.debug("improve_memory_pool background task was cancelled.")
+                        elif t.exception():
+                            logger.warning(
+                                "improve_memory_pool background task failed: %s",
+                                t.exception(),
+                            )
+                        else:
+                            logger.info("improve_memory_pool background task completed.")
+
+                    task.add_done_callback(_log_improve_result)
+                except Exception as exc:  # noqa: BLE001
+                    # Never let the improve trigger crash the caller.
+                    logger.warning(
+                        "Could not schedule improve_memory_pool: %s", exc
+                    )
+
+
+# ---------------------------------------------------------------------------
+# Module-level: isolated_evaluation_session context manager
+# ---------------------------------------------------------------------------
+
+
+@asynccontextmanager
+async def isolated_evaluation_session(session_id: str):
+    """
+    Async context manager that sandboxes all memory writes under a
+    dedicated Cognee dataset scope and guarantees cleanup on exit.
+
+    On **entry**: yields ``session_id`` for use as the ``dataset_id``
+    argument to ``remember_verdict`` calls inside the block.
+
+    On **exit** (normal *or* exception): calls ``forget_dataset(session_id)``
+    to surgically prune the ephemeral scope from the graph so it cannot
+    bleed into future evaluation sessions.
+
+    Parameters
+    ----------
+    session_id:
+        A unique string identifier for this evaluation session.  Used as
+        both the Cognee dataset name and the ``scope_id`` for pruning.
+
+    Example
+    -------
+    .. code-block:: python
+
+        from aroviq.engine.runner import isolated_evaluation_session
+        from aroviq.memory import init_memory, remember_verdict
+        from aroviq.memory.templates import FinalVerdict
+
+        await init_memory()
+        async with isolated_evaluation_session("eval-run-42") as scope:
+            await remember_verdict(
+                agent_output="...",
+                verdict=FinalVerdict.FLAGGED,
+                reasoning=["..."],
+                confidence=0.9,
+                dataset_id=scope,  # ← scoped to this session
+            )
+        # graph data for scope 'eval-run-42' has been erased automatically
+    """
+    logger.info(
+        "isolated_evaluation_session: initialising secure sandbox '%s'.",
+        session_id,
+    )
+    try:
+        yield session_id
+    finally:
+        logger.info(
+            "isolated_evaluation_session: purging ephemeral dataset '%s'.",
+            session_id,
+        )
+        try:
+            from aroviq.memory.operations import forget_dataset  # noqa: PLC0415
+
+            await forget_dataset(session_id)  # scope_id is positional
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "isolated_evaluation_session: failed to prune '%s': %s",
+                session_id,
+                exc,
+            )
