@@ -242,8 +242,9 @@ async def init_memory(config: Optional[MemoryConfig] = None) -> MemoryConfig:
             )
             cognee.config.set_graph_db_config(
                 {
-                    "graph_db_provider": "networkx",
-                    "graph_db_url": str(resolved.graph_db_path),
+                    # Cognee 1.2.2: keys are graph_database_provider / graph_file_path
+                    "graph_database_provider": "networkx",
+                    "graph_file_path": str(resolved.graph_db_path),
                 }
             )
             cognee.config.set_relational_db_config(
