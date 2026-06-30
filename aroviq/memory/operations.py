@@ -441,6 +441,7 @@ async def recall_prior_verdicts(
 
 
 async def improve_memory_pool(
+    dataset_name: str | None = None,
     *,
     datasets: Optional[list[str]] = None,
     prune_threshold_days: int = 90,
@@ -495,7 +496,11 @@ async def improve_memory_pool(
     cognee = _import_cognee()
     cfg = get_config()
 
-    target_datasets = datasets or [cfg.dataset_name]
+    # Resolve target datasets: single-name alias takes priority.
+    if dataset_name is not None:
+        target_datasets = [dataset_name]
+    else:
+        target_datasets = datasets or [cfg.dataset_name]
     t0 = time.monotonic()
 
     logger.info(
@@ -507,20 +512,44 @@ async def improve_memory_pool(
     # --- Step 1: pre-consolidation count ----------------------------------
     nodes_before = await _count_nodes(cognee, target_datasets)
 
-    # --- Step 2: re-cognify (memify) all target datasets -----------------
-    cognify_errors: list[str] = []
+    # --- Step 2: improve / re-cognify all target datasets -----------------
+    # Prefer cognee.improve() (Cognee 1.0 native memory refinement) which
+    # processes interaction signals, refines relationships, and dedupes nodes.
+    # Fall back to cognee.cognify() for older Cognee builds.
+    improve_errors: list[str] = []
     for ds in target_datasets:
-        try:
-            await cognee.cognify(datasets=[ds])  # type: ignore[attr-defined]
-            logger.debug("cognify completed for dataset '%s'.", ds)
-        except Exception as exc:
-            cognify_errors.append(f"{ds}: {exc}")
-            logger.warning("cognify failed for dataset '%s': %s", ds, exc)
+        improved = False
 
-    if cognify_errors and len(cognify_errors) == len(target_datasets):
+        # Strategy A: cognee.improve() — Cognee 1.0+
+        if hasattr(cognee, "improve"):
+            try:
+                await cognee.improve(dataset_name=ds)  # type: ignore[attr-defined]
+                logger.debug("cognee.improve() completed for dataset '%s'.", ds)
+                improved = True
+            except Exception as exc:
+                logger.warning(
+                    "cognee.improve() failed for dataset '%s': %s — "
+                    "falling back to cognee.cognify().",
+                    ds,
+                    exc,
+                )
+
+        # Strategy B: cognee.cognify() — pre-1.0 fallback
+        if not improved:
+            try:
+                await cognee.cognify(datasets=[ds])  # type: ignore[attr-defined]
+                logger.debug("cognee.cognify() completed for dataset '%s'.", ds)
+                improved = True
+            except Exception as exc:
+                improve_errors.append(f"{ds}: {exc}")
+                logger.warning(
+                    "cognee.cognify() also failed for dataset '%s': %s", ds, exc
+                )
+
+    if improve_errors and len(improve_errors) == len(target_datasets):
         raise MemoryConsolidationError(
-            "cognify failed for all target datasets: "
-            + "; ".join(cognify_errors)
+            "Memory consolidation failed for all target datasets: "
+            + "; ".join(improve_errors)
         )
 
     # --- Step 3: prune stale nodes ----------------------------------------
