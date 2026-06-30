@@ -107,6 +107,7 @@ def _import_cognee():  # type: ignore[return]
         The ``cognee`` module.
     """
     try:
+        # pyrefly: ignore [missing-import]
         import cognee  # noqa: PLC0415
 
         return cognee
