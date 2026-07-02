@@ -404,8 +404,13 @@ class AroviqEngine:
                 try:
                     from aroviq.memory.operations import improve_memory_pool  # noqa: PLC0415
 
-                    task = asyncio.ensure_future(
-                        improve_memory_pool(dataset_name=improve_dataset)
+                    # asyncio.create_task schedules improve_memory_pool() on the
+                    # CURRENT running event loop's task queue.  It returns immediately,
+                    # so the caller's coroutine is NEVER blocked by the heavy-lifting
+                    # graph-optimisation work (deduplication, re-weighting, etc.).
+                    task = asyncio.create_task(
+                        improve_memory_pool(dataset_name=improve_dataset),
+                        name="aroviq:improve_memory_pool",
                     )
 
                     def _log_improve_result(t: asyncio.Task) -> None:  # type: ignore[type-arg]
